@@ -112,6 +112,9 @@ target_link_libraries(vku PUBLIC
     VulkanHppModule
     VulkanMemoryAllocator-Hpp::module
 )
+target_compile_definitions(vku PUBLIC
+    VKU_VK_VERSION=${VKU_VK_VERSION}
+)
 
 if (VKU_USE_GLFW)
     target_sources(vku PUBLIC

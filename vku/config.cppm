@@ -42,7 +42,9 @@ namespace vku {
 #endif
 #if __APPLE__
             config.instanceExtensions.append_range(std::array {
+#if VKU_VK_VERSION < 1001000
                 vk::KHRGetPhysicalDeviceProperties2ExtensionName,
+#endif
                 vk::KHRPortabilityEnumerationExtensionName,
             });
 #endif
