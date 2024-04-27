@@ -12,7 +12,9 @@ jobs:
         uses: humbletim/install-vulkan-sdk@v1.1.1
 
       - name: Install Clang and Ninja
-        run: sudo apt-get install -y clang++-18 ninja-build
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang++-18 ninja-build
 
       - name: Make local build of libc++ with Standard Library Module
         run: |
