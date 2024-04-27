@@ -24,7 +24,7 @@ namespace std::ranges::views {
             return zip(r, r | drop(1));
         }
     };
-    template <size_t N> constexpr adjacent_fn<N> adjacent;
+    export template <size_t N> constexpr adjacent_fn<N> adjacent;
     export constexpr adjacent_fn<2> pairwise;
 
     export constexpr auto zip_transform(
