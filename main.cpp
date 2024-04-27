@@ -15,6 +15,11 @@ import vku;
     })
 #define FWD(...) static_cast<decltype(__VA_ARGS__) &&>(__VA_ARGS__)
 
+template <std::unsigned_integral T>
+constexpr auto divCeil(T num, T denom) noexcept -> T {
+    return num / denom + num % denom;
+}
+
 class MipmapComputer {
 public:
     struct DescriptorSetLayouts : vku::DescriptorSetLayouts<1> {
@@ -63,6 +68,32 @@ public:
     ) : descriptorSetLayouts { device, mipImageCount },
         pipelineLayout { createPipelineLayout(device) },
         pipeline { createPipeline(device) } { }
+
+    auto compute(
+        vk::CommandBuffer commandBuffer,
+        const DescriptorSets &descriptorSets,
+        const vk::Extent2D &baseImageExtent,
+        std::uint32_t mipLevels
+    ) const -> void {
+        commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, *pipeline);
+        commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *pipelineLayout, 0, descriptorSets, {});
+        for (auto [srcLevel, dstLevel] : std::views::iota(0U, mipLevels) | std::views::pairwise) {
+            if (srcLevel != 0U) {
+                constexpr vk::MemoryBarrier barrier {
+                    vk::AccessFlagBits::eShaderWrite, vk::AccessFlagBits::eShaderRead,
+                };
+                commandBuffer.pipelineBarrier(
+                    vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eComputeShader,
+                    {}, barrier, {}, {});
+            }
+
+            commandBuffer.pushConstants<PushConstant>(*pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, PushConstant { srcLevel });
+            commandBuffer.dispatch(
+                divCeil(baseImageExtent.width >> dstLevel, 16U),
+                divCeil(baseImageExtent.height >> dstLevel, 16U),
+                1);
+        }
+    }
 
 private:
     [[nodiscard]] auto createPipelineLayout(
@@ -142,6 +173,61 @@ public:
     ) : descriptorSetLayouts { device, mipImageCount },
         pipelineLayout { createPipelineLayout(device) },
         pipeline { createPipeline(device) } { }
+
+    auto compute(
+        vk::CommandBuffer commandBuffer,
+        const DescriptorSets &descriptorSets,
+        const vk::Extent2D &baseImageExtent,
+        std::uint32_t mipLevels
+    ) const -> void {
+        // Base image size must be greater than or equal to 32. Therefore, the first execution may process less than 5 mip levels.
+        // For example, if base extent is 4096x4096 (mipLevels=13),
+        // Step 0 (4096 -> 1024)
+        // Step 1 (1024 -> 32)
+        // Step 2 (32 -> 1) (full processing required)
+
+        // TODO.CXX23: use std::views::chunk instead, like:
+        // const std::vector indexChunks
+        //     = std::views::iota(1U, targetImage.mipLevels)                             // [1, 2, ..., 11, 12]
+        //     | std::views::reverse                                                     // [12, 11, ..., 2, 1]
+        //     | std::views::chunk(5)                                                    // [[12, 11, 10, 9, 8], [7, 6, 5, 4, 3], [2, 1]]
+        //     | std::views::transform([](auto &&chunk) {
+        //          return chunk | std::views::reverse | std::ranges::to<std::vector>();
+        //     })                                                                        // [[8, 9, 10, 11, 12], [3, 4, 5, 6, 7], [1, 2]]
+        //     | std::views::reverse                                                     // [[1, 2], [3, 4, 5, 6, 7], [8, 9, 10, 11, 12]]
+        //     | std::ranges::to<std::vector>();
+        std::vector<std::vector<std::uint32_t>> indexChunks;
+        for (int endMipLevel = mipLevels; endMipLevel > 1; endMipLevel -= 5) {
+            indexChunks.emplace_back(
+                std::views::iota(
+                    static_cast<std::uint32_t>(std::max(1, endMipLevel - 5)),
+                    static_cast<std::uint32_t>(endMipLevel))
+                | std::ranges::to<std::vector>());
+        }
+        std::ranges::reverse(indexChunks);
+
+        commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, *pipeline);
+        commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *pipelineLayout, 0, descriptorSets, {});
+        for (const auto &[idx, mipIndices] : indexChunks | std::views::enumerate) {
+            if (idx != 0) {
+                constexpr vk::MemoryBarrier barrier {
+                    vk::AccessFlagBits::eShaderWrite, vk::AccessFlagBits::eShaderRead,
+                };
+                commandBuffer.pipelineBarrier(
+                    vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eComputeShader,
+                    {}, barrier, {}, {});
+            }
+
+            commandBuffer.pushConstants<PushConstant>(*pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, PushConstant {
+                mipIndices.front() - 1U,
+                static_cast<std::uint32_t>(mipIndices.size()),
+            });
+            commandBuffer.dispatch(
+                (baseImageExtent.width >> mipIndices.front()) / 16U,
+                (baseImageExtent.height >> mipIndices.front()) / 16U,
+                1);
+        }
+    }
 
 private:
     [[nodiscard]] auto createPipelineLayout(
@@ -249,11 +335,6 @@ struct Queues {
             | std::ranges::to<std::vector>();
     }
 };
-
-template <std::unsigned_integral T>
-constexpr auto divCeil(T num, T denom) noexcept -> T {
-    return num / denom + num % denom;
-}
 
 class MainApp : vku::Instance, vku::Device<QueueFamilyIndices, Queues> {
 public:
@@ -443,24 +524,7 @@ public:
                        {}, {}, {}, barrier);
                 }
 
-                commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, *mipmapComputer.pipeline);
-                commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *mipmapComputer.pipelineLayout, 0, descriptorSets, {});
-                for (auto [srcLevel, dstLevel] : std::views::iota(0U, targetImage.mipLevels) | std::views::pairwise) {
-                    if (srcLevel != 0U) {
-                        constexpr vk::MemoryBarrier barrier {
-                            vk::AccessFlagBits::eShaderWrite, vk::AccessFlagBits::eShaderRead,
-                        };
-                        commandBuffer.pipelineBarrier(
-                            vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eComputeShader,
-                            {}, barrier, {}, {});
-                    }
-
-                    commandBuffer.pushConstants<MipmapComputer::PushConstant>(*mipmapComputer.pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, MipmapComputer::PushConstant { srcLevel });
-                    commandBuffer.dispatch(
-                        divCeil(targetImage.extent.width >> dstLevel, 16U),
-                        divCeil(targetImage.extent.height >> dstLevel, 16U),
-                        1);
-                }
+                mipmapComputer.compute(commandBuffer, descriptorSets, baseImageExtent, targetImage.mipLevels);
 
                 commandBuffer.writeTimestamp(vk::PipelineStageFlagBits::eBottomOfPipe, *queryPool, 1);
             });
@@ -494,32 +558,6 @@ public:
                 descriptorSets.getDescriptorWrites0(imageMipViews | std::views::transform([](const auto &x) { return *x; })).get(),
                 {});
 
-            // Base image size must be greater than or equal to 32. Therefore, the first execution may process less than 5 mip levels.
-            // For example, if base extent is 4096x4096 (mipLevels=13),
-            // Step 0 (4096 -> 1024)
-            // Step 1 (1024 -> 32)
-            // Step 2 (32 -> 1) (full processing required)
-
-            // TODO.CXX23: use std::views::chunk instead, like:
-            // const std::vector indexChunks
-            //     = std::views::iota(1U, targetImage.mipLevels)                             // [1, 2, ..., 11, 12]
-            //     | std::views::reverse                                                     // [12, 11, ..., 2, 1]
-            //     | std::views::chunk(5)                                                    // [[12, 11, 10, 9, 8], [7, 6, 5, 4, 3], [2, 1]]
-            //     | std::views::transform([](auto &&chunk) {
-            //          return chunk | std::views::reverse | std::ranges::to<std::vector>();
-            //     })                                                                        // [[8, 9, 10, 11, 12], [3, 4, 5, 6, 7], [1, 2]]
-            //     | std::views::reverse                                                     // [[1, 2], [3, 4, 5, 6, 7], [8, 9, 10, 11, 12]]
-            //     | std::ranges::to<std::vector>();
-            std::vector<std::vector<std::uint32_t>> indexChunks;
-            for (int endMipLevel = targetImage.mipLevels; endMipLevel > 1; endMipLevel -= 5) {
-                indexChunks.emplace_back(
-                    std::views::iota(
-                        static_cast<std::uint32_t>(std::max(1, endMipLevel - 5)),
-                        static_cast<std::uint32_t>(endMipLevel))
-                    | std::ranges::to<std::vector>());
-            }
-            std::ranges::reverse(indexChunks);
-
             vku::executeSingleCommand(*device, *computeCommandPool, queues.compute, [&](vk::CommandBuffer commandBuffer) {
                 commandBuffer.resetQueryPool(*queryPool, 0, 2);
                 commandBuffer.writeTimestamp(vk::PipelineStageFlagBits::eTopOfPipe, *queryPool, 0);
@@ -537,27 +575,7 @@ public:
                        {}, {}, {}, barrier);
                 }
 
-                commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, *subgroupMipmapComputer.pipeline);
-                commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *subgroupMipmapComputer.pipelineLayout, 0, descriptorSets, {});
-                for (const auto &[idx, mipIndices] : indexChunks | std::views::enumerate) {
-                    if (idx != 0) {
-                        constexpr vk::MemoryBarrier barrier {
-                            vk::AccessFlagBits::eShaderWrite, vk::AccessFlagBits::eShaderRead,
-                        };
-                        commandBuffer.pipelineBarrier(
-                            vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eComputeShader,
-                            {}, barrier, {}, {});
-                    }
-
-                    commandBuffer.pushConstants<SubgroupMipmapComputer::PushConstant>(*subgroupMipmapComputer.pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, SubgroupMipmapComputer::PushConstant {
-                        mipIndices.front() - 1U,
-                        static_cast<std::uint32_t>(mipIndices.size()),
-                    });
-                    commandBuffer.dispatch(
-                        (targetImage.extent.width >> mipIndices.front()) / 16U,
-                        (targetImage.extent.height >> mipIndices.front()) / 16U,
-                        1);
-                }
+                subgroupMipmapComputer.compute(commandBuffer, descriptorSets, baseImageExtent, targetImage.mipLevels);
 
                 commandBuffer.writeTimestamp(vk::PipelineStageFlagBits::eBottomOfPipe, *queryPool, 1);
             });
