@@ -1,9 +1,9 @@
-name: Run
+name: Deploy and Test
 
 on: [push]
 
 jobs:
-  run:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,17 +25,22 @@ jobs:
           git clone https://github.com/llvm/llvm-project.git
           cd llvm-project
           mkdir build
-          cmake -G Ninja -S runtimes -B build -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;libunwind"
+          CC=clang-18 CXX=clang++ cmake                         \
+            -G Ninja                                            \
+            -S runtimes                                         \
+            -B build                                            \
+            -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;libunwind"
           ninja -C build
 
       - name: Configure
         run: |
           mkdir build
-          cmake                                                                  \
+          CC=clang-18 CXX=clang++ cmake                                                      \
             -S .                                                                             \
             -B build                                                                         \
             -G Ninja                                                                         \
             -DCMAKE_BUILD_TYPE=Release                                                       \
+            -DLIBCXX_BUILD=/llvm-project/build                                               \
             -DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake
 
       - name: Build
@@ -44,8 +49,31 @@ jobs:
       - name: Run
         run: ./build/mipmap assets/texture.jpg build
 
-      - name: Upload outputs as artifact
+      - name: Upload executable as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: outputs
-          path: build/*.png
+          name: mipmap-${{ runner.os }}
+          path: build/mipmap
+
+  test:
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download prebuilt executable
+        uses: actions/download-artifact@v4
+        with:
+          name: mipmap-${{ runner.os }}
+          path: build
+
+      - name: Set file execution permission
+        run: |
+          chmod +x build/mipmap
+
+      - name: Install Mesa Vulkan drivers
+        run: |
+          sudo apt-get install -y mesa-vulkan-drivers
+
+      - name: Run
+        run: ./build/mipmap assets/texture.jpg build
