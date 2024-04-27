@@ -11,10 +11,14 @@ jobs:
       - name: Install Vulkan SDK
         uses: humbletim/install-vulkan-sdk@v1.1.1
 
-      - name: Install Clang and Ninja
+      - name: Install Clang 18
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang++-18 ninja-build
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 18
+
+      - name: Install Ninja
+        run: sudo apt-get install -y ninja-build
 
       - name: Make local build of libc++ with Standard Library Module
         run: |
@@ -27,7 +31,7 @@ jobs:
       - name: Configure
         run: |
           mkdir build
-          CXX=clang++ cmake                                                                  \
+          cmake                                                                  \
             -S .                                                                             \
             -B build                                                                         \
             -G Ninja                                                                         \
