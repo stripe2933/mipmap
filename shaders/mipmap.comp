@@ -1,0 +1,25 @@
+#version 450
+#extension GL_EXT_nonuniform_qualifier : require
+
+layout (set = 0, binding = 0, rgba8) uniform image2D mipImages[];
+
+layout (push_constant) uniform PushConstant {
+    uint baseLevel;
+} pc;
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+void main(){
+    uvec2 mipImageSize = imageSize(mipImages[pc.baseLevel + 1U]);
+    if (gl_GlobalInvocationID.x >= mipImageSize.x || gl_GlobalInvocationID.y >= mipImageSize.y) {
+        return;
+    }
+
+    vec4 averageColor
+        = imageLoad(mipImages[pc.baseLevel], 2 * ivec2(gl_GlobalInvocationID.xy))
+        + imageLoad(mipImages[pc.baseLevel], 2 * ivec2(gl_GlobalInvocationID.xy) + ivec2(1, 0))
+        + imageLoad(mipImages[pc.baseLevel], 2 * ivec2(gl_GlobalInvocationID.xy) + ivec2(0, 1))
+        + imageLoad(mipImages[pc.baseLevel], 2 * ivec2(gl_GlobalInvocationID.xy) + ivec2(1, 1));
+    averageColor /= 4.0;
+    imageStore(mipImages[pc.baseLevel + 1U], ivec2(gl_GlobalInvocationID.xy), averageColor);
+}

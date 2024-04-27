@@ -1,0 +1,45 @@
+name: Run
+
+on: [push]
+
+jobs:
+  build-unix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vulkan SDK
+        uses: humbletim/install-vulkan-sdk@v1.1.1
+
+      - name: Install Clang and Ninja
+        run: sudo apt-get install -y clang-18 ninja-build
+
+      - name: Make local build of libc++ with Standard Library Module
+        run: |
+          git clone https://github.com/llvm/llvm-project.git
+          cd llvm-project
+          mkdir build
+          CC=clang-18 CXX=clang++ cmake -G Ninja -S runtimes -B build -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;libunwind"
+          ninja -C build
+
+      - name: Configure
+        run: |
+          mkdir build
+          CXX=clang++ cmake                                                                  \
+            -S .                                                                             \
+            -B build                                                                         \
+            -G Ninja                                                                         \
+            -DCMAKE_BUILD_TYPE=Release                                                       \
+            -DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake
+
+      - name: Build
+        run: cmake --build build -t mipmap --config Release
+
+      - name: Run
+        run: ./build/mipmap assets/texture.jpg build
+
+      - name: Upload outputs as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: outputs
+          path: build/*.png
