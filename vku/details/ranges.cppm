@@ -1,7 +1,6 @@
 export module vku:details.ranges;
 
 export import std;
-import :details.missing_std;
 
 #define INDEX_SEQ(Is, N, ...)                          \
     [&]<std::size_t ...Is>(std::index_sequence<Is...>) \
