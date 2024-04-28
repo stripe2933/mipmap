@@ -737,7 +737,7 @@ private:
 int main(int argc, char **argv) {
     if (argc != 3) {
         std::println(std::cerr, "Usage: {} <image-path> <output-dir>", argv[0]);
-        std::terminate();
+        std::exit(1);
     }
 
     MainApp{}.run(argv[1], argv[2]);
