@@ -4,28 +4,33 @@ on: [push]
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
+
+      - name: Add homebrew to PATH (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          echo "/home/linuxbrew/.linuxbrew/bin" >> $GITHUB_PATH
 
       - name: Install Vulkan SDK
         uses: humbletim/install-vulkan-sdk@v1.1.1
 
-      - name: Install Clang 18
+      - name: Get LLVM and Ninja via Homebrew
         run: |
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh 18
-
-      - name: Install Ninja
-        run: sudo apt-get install -y ninja-build
+          brew install llvm ninja
 
       - name: Make local build of libc++ with Standard Library Module
         run: |
           git clone https://github.com/llvm/llvm-project.git
           cd llvm-project
           mkdir build
-          CC=clang-18 CXX=clang++ cmake                         \
+          CC=$(brew --prefix llvm)/bin/clang                    \
+          CXX=$(brew --prefix llvm)/bin/clang++                 \
+          cmake                                                 \
             -G Ninja                                            \
             -S runtimes                                         \
             -B build                                            \
@@ -35,7 +40,9 @@ jobs:
       - name: Configure
         run: |
           mkdir build
-          CC=clang-18 CXX=clang++ cmake                                                      \
+          CC=$(brew --prefix llvm)/bin/clang                                                 \
+          CXX=$(brew --prefix llvm)/bin/clang++                                              \
+          cmake                                                                              \
             -S .                                                                             \
             -B build                                                                         \
             -G Ninja                                                                         \
@@ -45,9 +52,6 @@ jobs:
 
       - name: Build
         run: cmake --build build -t mipmap --config Release
-
-      - name: Run
-        run: ./build/mipmap assets/texture.jpg build
 
       - name: Upload executable as artifact
         uses: actions/upload-artifact@v4
