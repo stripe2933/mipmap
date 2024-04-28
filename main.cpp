@@ -268,9 +268,9 @@ struct QueueFamilyIndices {
     ) {
         const std::vector queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
 
-        // Compute: prefer compute-only (\w transfer ok) queue family.
+        // Compute: prefer compute specialized (no graphics capable) queue family.
         if (auto it = std::ranges::find_if(queueFamilyProperties, [](vk::QueueFlags flags) {
-            return (flags & ~vk::QueueFlagBits::eTransfer) == vk::QueueFlagBits::eCompute;
+            return (flags & vk::QueueFlagBits::eCompute) && !(flags & vk::QueueFlagBits::eGraphics);
         }, &vk::QueueFamilyProperties::queueFlags); it != queueFamilyProperties.end()) {
             compute = it - queueFamilyProperties.begin();
         }
@@ -283,7 +283,7 @@ struct QueueFamilyIndices {
             throw std::runtime_error { "Physical device doesn't have compute queue family" };
         }
 
-        // Graphcs: any queue family is ok.
+        // Graphics: any queue family is ok.
         if (auto it = std::ranges::find_if(queueFamilyProperties, [](vk::QueueFlags flags) {
             return vku::contains(flags, vk::QueueFlagBits::eGraphics);
         }, &vk::QueueFamilyProperties::queueFlags);
@@ -639,9 +639,9 @@ public:
         });
         queues.transfer.waitIdle();
 
-        constexpr std::array fileBasenames { "blit", "compute_per_level_barriers", "compute_subgroup" };
-        for (const auto &[destagingBuffer, fileBasename] : std::views::zip(destagingBuffers, fileBasenames)) {
-            stbi_write_png((outputDir / fileBasename).replace_extension(".png").c_str(),
+        constexpr std::array filenames { "blit.png", "compute_per_level_barriers.png", "compute_subgroup.png" };
+        for (const auto &[destagingBuffer, filename] : std::views::zip(destagingBuffers, filenames)) {
+            stbi_write_png((outputDir / filename).c_str(),
                 destagingImageExtent.width, destagingImageExtent.height, 4,
                 destagingBuffer.data, blockSize(vk::Format::eR8G8B8A8Unorm) * destagingImageExtent.width);
         }
@@ -659,7 +659,11 @@ private:
 
                 const vk::StructureChain properties2
                     = physicalDevice.getProperties2<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceSubgroupProperties>();
-                if (!vku::contains(properties2.get<vk::PhysicalDeviceSubgroupProperties>().supportedOperations, vk::SubgroupFeatureFlagBits::eShuffle)) {
+                if (auto subgroupProperties = properties2.get<vk::PhysicalDeviceSubgroupProperties>(); subgroupProperties.subgroupSize < 32){
+                    // Subgroup size must be at lest 32.
+                    return 0U;
+                }
+                else if (!vku::contains(subgroupProperties.supportedOperations, vk::SubgroupFeatureFlagBits::eShuffle)) {
                     // Subgroup shuffle not supported.
                     return 0U;
                 }
