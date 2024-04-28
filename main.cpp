@@ -1,5 +1,9 @@
 #include <stb_image_write.h>
 
+#ifdef NDEBUG
+#include <resources/shaders.hpp>
+#endif
+
 import std;
 import image_data;
 import missing_std;
@@ -115,7 +119,13 @@ private:
     ) const -> vk::raii::Pipeline {
         const auto [_, stages] = vku::createStages(
             device,
-            vku::Shader { vk::ShaderStageFlagBits::eCompute, vku::Shader::readCode("shaders/mipmap.comp.spv") });
+            vku::Shader { vk::ShaderStageFlagBits::eCompute,
+#ifdef NDEBUG
+                vku::Shader::convert(resources::shaders_mipmap_comp()),
+#else
+                vku::Shader::readCode("shaders/mipmap.comp.spv"),
+#endif
+            });
         return { device, nullptr, vk::ComputePipelineCreateInfo {
             {},
             get<0>(stages),
@@ -249,7 +259,13 @@ private:
     ) const -> vk::raii::Pipeline {
         const auto [_, stages] = vku::createStages(
             device,
-            vku::Shader { vk::ShaderStageFlagBits::eCompute, vku::Shader::readCode("shaders/subgroup_mipmap.comp.spv") });
+            vku::Shader { vk::ShaderStageFlagBits::eCompute,
+#ifdef NDEBUG
+                vku::Shader::convert(resources::shaders_subgroup_mipmap_comp()),
+#else
+                vku::Shader::readCode("shaders/subgroup_mipmap.comp.spv"),
+#endif
+            });
         return { device, nullptr, vk::ComputePipelineCreateInfo {
             {},
             get<0>(stages),
