@@ -665,7 +665,7 @@ public:
 
 private:
     [[nodiscard]] auto createDevice() const -> Device {
-        return Device { instance, Device::Config {
+        return Device { instance, Device::Config<std::tuple<vk::PhysicalDeviceHostQueryResetFeatures, vk::PhysicalDeviceDescriptorIndexingFeatures>> /* TODO.CXX20: remove when can be deduced */ {
             .physicalDeviceRater = [](vk::PhysicalDevice physicalDevice) {
                 if (const vk::PhysicalDeviceLimits limits = physicalDevice.getProperties().limits;
                     limits.timestampPeriod == 0.f || !limits.timestampComputeAndGraphics) {
