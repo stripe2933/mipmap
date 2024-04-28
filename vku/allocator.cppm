@@ -5,20 +5,14 @@ export import vk_mem_alloc_hpp;
 export import vulkan_hpp;
 
 namespace vku {
-    export struct Allocator {
-        vma::Allocator allocator;
-
+    export struct Allocator : vma::Allocator {
         Allocator(
             const vma::AllocatorCreateInfo &createInfo
-        ) : allocator { createAllocator(createInfo) } { }
+        ) : vma::Allocator { createAllocator(createInfo) } { }
         Allocator(const Allocator&) = delete;
-        Allocator(Allocator &&src) noexcept : allocator { std::exchange(src.allocator, nullptr) } { }
+        Allocator(Allocator &&src) = delete;
         ~Allocator() {
-            allocator.destroy();
-        }
-
-        [[nodiscard]] constexpr operator vma::Allocator() const noexcept {
-            return allocator;
+            destroy();
         }
     };
 }
