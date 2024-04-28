@@ -19,9 +19,9 @@ jobs:
       - name: Install Vulkan SDK
         uses: humbletim/install-vulkan-sdk@v1.1.1
 
-      - name: Get LLVM and Ninja via Homebrew
+      - name: Get LLVM, Ninja and vcpkg via Homebrew
         run: |
-          brew install llvm ninja
+          brew install llvm ninja vcpkg
 
       - name: Make local build of libc++ with Standard Library Module
         run: |
@@ -30,25 +30,24 @@ jobs:
           mkdir build
           CC=$(brew --prefix llvm)/bin/clang                    \
           CXX=$(brew --prefix llvm)/bin/clang++                 \
-          cmake                                                 \
-            -G Ninja                                            \
-            -S runtimes                                         \
-            -B build                                            \
+          cmake -G Ninja -S runtimes -B build                   \
             -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;libunwind"
           ninja -C build
+
+      - name: Install vcpkg
+        run: |
+          git clone https://github.com/microsoft/vcpkg "$HOME/vcpkg"
 
       - name: Configure
         run: |
           mkdir build
-          CC=$(brew --prefix llvm)/bin/clang                                                 \
-          CXX=$(brew --prefix llvm)/bin/clang++                                              \
-          cmake                                                                              \
-            -S .                                                                             \
-            -B build                                                                         \
-            -G Ninja                                                                         \
-            -DCMAKE_BUILD_TYPE=Release                                                       \
-            -DLIBCXX_BUILD=/llvm-project/build                                               \
-            -DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake
+          export VCPKG_ROOT="$HOME/vcpkg"
+          CC=$(brew --prefix llvm)/bin/clang                                    \
+          CXX=$(brew --prefix llvm)/bin/clang++                                 \
+          cmake -S . -B build -G Ninja                                          \
+            -DCMAKE_BUILD_TYPE=Release                                          \
+            -DLIBCXX_BUILD=/llvm-project/build                                  \
+            -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
 
       - name: Build
         run: cmake --build build -t mipmap --config Release
