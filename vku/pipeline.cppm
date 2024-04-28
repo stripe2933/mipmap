@@ -50,18 +50,23 @@ namespace vku {
         }
     };
 
+    template <typename T>
+    constexpr std::array<vk::SpecializationMapEntry, details::size<T>()> specializationMapEntries = [] {
+        std::array<vk::SpecializationMapEntry, details::size<T>()> result;
+        details::for_each([&](auto I) {
+            get<I>(result)
+                .setConstantID(I)
+                .setOffset(details::offset_of<I, T>())
+                .setSize(details::size_of<I, T>());
+        }, result);
+        return result;
+    }();
+
     export template <typename T>
     [[nodiscard]] auto getSpecializationInfo(
         const T &specializationData
     ) -> vk::SpecializationInfo {
-        std::array<vk::SpecializationMapEntry, details::size<T>()> specializationMapEntries;
-        details::for_each([&](auto I) {
-            get<I>(specializationMapEntries)
-                .setConstantID(I)
-                .setOffset(details::offset_of<I, T>())
-                .setSize(details::size_of<I, T>());
-        }, specializationData);
-        return { specializationMapEntries, vk::ArrayProxyNoTemporaries(specializationData) };
+        return { specializationMapEntries<T>, vk::ArrayProxyNoTemporaries(specializationData) };
     }
 
     export template <std::convertible_to<Shader>... Shaders>

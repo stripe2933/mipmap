@@ -34,7 +34,7 @@ namespace vku::details {
 
     template <class T> extern const T ext{};
     struct any { template <class T> operator T() const noexcept; };
-    template<auto...> struct auto_ { constexpr explicit(false) auto_(auto&&...) noexcept { } };
+    template<auto...> struct auto_ { constexpr auto_(auto&&...) noexcept { } };
 
     template <std::size_t N, class...Ts> requires (N < sizeof...(Ts))
     [[nodiscard]] constexpr decltype(auto) nth_pack_element(Ts&&...args) noexcept {
@@ -47,9 +47,9 @@ namespace vku::details {
         requires std::is_aggregate_v<T>
     [[nodiscard]] constexpr auto size() -> std::size_t {
         if constexpr (requires { T{Ts{}...}; } and not requires { T{Ts{}..., any{}}; }) {
-              return sizeof...(Ts);
+            return sizeof...(Ts);
         } else {
-              return size<T, Ts..., any>();
+            return size<T, Ts..., any>();
         }
     }
 
@@ -96,14 +96,14 @@ namespace vku::details {
     export template <std::size_t N, class T>
         requires std::is_aggregate_v<std::remove_cvref_t<T>>
     [[nodiscard]] constexpr auto offset_of() -> std::size_t {
-      if constexpr (not N) {
-          return {};
-      } else {
-          constexpr auto offset = offset_of<N-1, T>() + size_of<N-1, T>();
-          constexpr auto alignment = std::min(alignof(T), align_of<N, T>());
-          constexpr auto padding = offset % alignment;
-          return offset + padding;
-      }
+        if constexpr (not N) {
+            return {};
+        } else {
+            constexpr auto offset = offset_of<N-1, T>() + size_of<N-1, T>();
+            constexpr auto alignment = std::min(alignof(T), align_of<N, T>());
+            constexpr auto padding = offset % alignment;
+            return offset + padding;
+        }
     }
 
     export template <std::size_t N, class T>
@@ -116,7 +116,7 @@ namespace vku::details {
         requires std::is_aggregate_v<std::remove_cvref_t<T>>
     constexpr auto for_each(Fn&& fn) -> void {
         INDEX_SEQ(Ns, size<std::remove_cvref_t<T>>(), {
-          (FWD(fn)(std::integral_constant<decltype(Ns), Ns>{}), ...);
+            (FWD(fn)(std::integral_constant<decltype(Ns), Ns>{}), ...);
         });
     }
 
@@ -124,7 +124,7 @@ namespace vku::details {
         requires std::is_aggregate_v<std::remove_cvref_t<T>>
     constexpr auto for_each(Fn&& fn, T&&) -> void {
         INDEX_SEQ(Ns, size<std::remove_cvref_t<T>>(), {
-          (FWD(fn)(std::integral_constant<decltype(Ns), Ns>{}), ...);
+            (FWD(fn)(std::integral_constant<decltype(Ns), Ns>{}), ...);
         });
     }
 }
