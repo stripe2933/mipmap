@@ -42,7 +42,7 @@ namespace vku {
         }
 
         template <typename T>
-            requires (sizeof(T) % 4 == 0)
+            requires (4 % sizeof(T) == 0)
         [[nodiscard]] static auto convert(
             std::span<const T> data
         ) noexcept -> std::span<const std::uint32_t> {
