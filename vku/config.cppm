@@ -13,8 +13,8 @@ namespace vku {
     public:
         template <details::tuple_like PNextsTuple = std::tuple<>>
         struct Config {
-            std::vector<const char*> instanceLayers;
-            std::vector<const char*> instanceExtensions;
+            std::vector<const char*> layers;
+            std::vector<const char*> extensions;
             PNextsTuple pNexts;
         };
 
@@ -38,10 +38,10 @@ namespace vku {
             Config<ConfigArgs...> &config
         ) const -> vk::raii::Instance {
 #ifndef NDEBUG
-            config.instanceLayers.emplace_back("VK_LAYER_KHRONOS_validation");
+            config.layers.emplace_back("VK_LAYER_KHRONOS_validation");
 #endif
 #if __APPLE__
-            config.instanceExtensions.append_range(std::array {
+            config.extensions.append_range(std::array {
 #if VKU_VK_VERSION < 1001000
                 vk::KHRGetPhysicalDeviceProperties2ExtensionName,
 #endif
@@ -57,8 +57,8 @@ namespace vku {
                     {},
 #endif
                     &applicationInfo,
-                    config.instanceLayers,
-                    config.instanceExtensions,
+                    config.layers,
+                    config.extensions,
                 }, pNexts... };
             }, config.pNexts).get() };
         }
@@ -109,7 +109,7 @@ namespace vku {
         struct Config {
             std::function<QueueFamilyIndices(vk::PhysicalDevice)> queueFamilyIndicesGetter = DefaultQueueFamilyIndicesGetter{};
             std::function<std::uint32_t(vk::PhysicalDevice)> physicalDeviceRater = DefaultPhysicalDeviceRater { queueFamilyIndicesGetter };
-            std::vector<const char*> deviceExtensions;
+            std::vector<const char*> extensions;
             std::optional<vk::PhysicalDeviceFeatures> physicalDeviceFeatures;
             PNextsTuple pNexts;
         };
@@ -153,7 +153,7 @@ namespace vku {
             Config<ConfigArgs...> &config
         ) const -> vk::raii::Device {
 #if __APPLE__
-            config.deviceExtensions.push_back(vk::KHRPortabilitySubsetExtensionName);
+            config.extensions.push_back(vk::KHRPortabilitySubsetExtensionName);
 #endif
 
             const auto queueCreateInfos = Queues::getDeviceQueueCreateInfos(queueFamilyIndices);
@@ -162,7 +162,7 @@ namespace vku {
                     {},
                     queueCreateInfos,
                     {},
-                    config.deviceExtensions,
+                    config.extensions,
                     config.physicalDeviceFeatures ? &*config.physicalDeviceFeatures : nullptr,
                 }, args... };
             }, config.pNexts).get() };
