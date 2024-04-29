@@ -53,11 +53,12 @@ jobs:
       - name: Configure
         run: |
           mkdir build
-          CC=$(brew --prefix llvm)/bin/clang                                             \
-          CXX=$(brew --prefix llvm)/bin/clang++                                          \
-          cmake -S . -B build -G Ninja                                                   \
-            -DCMAKE_BUILD_TYPE=Release                                                   \
-            -DLIBCXX_BUILD=${{ github.workspace }}/llvm-project/build                    \
+          CC=$(brew --prefix llvm)/bin/clang                                    \
+          CXX=$(brew --prefix llvm)/bin/clang++                                 \
+          cmake -S . -B build -G Ninja                                          \
+            -DCMAKE_BUILD_TYPE=Release                                          \
+            -DCMAKE_CXX_FLAGS="-static"                                         \
+            -DLIBCXX_BUILD=${{ github.workspace }}/llvm-project/build           \
             -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
 
       - name: Build
