@@ -11,17 +11,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Add homebrew to PATH (Linux only)
+      - name: Add homebrew and vcpkg to PATH (Linux only)
         if: runner.os == 'Linux'
         run: |
           echo "/home/linuxbrew/.linuxbrew/bin" >> $GITHUB_PATH
+          echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> $GITHUB_PATH
 
       - name: Install Vulkan SDK
         uses: humbletim/install-vulkan-sdk@v1.1.1
 
-      - name: Get LLVM, Ninja and vcpkg via Homebrew
+      - name: Get LLVM, Ninja via Homebrew
         run: |
-          brew install llvm ninja vcpkg
+          brew install llvm ninja
 
       - name: Make local build of libc++ with Standard Library Module
         run: |
@@ -34,14 +35,15 @@ jobs:
             -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;libunwind"
           ninja -C build
 
-      - name: Install vcpkg
+      - name: Install vcpkg (macOS only)
         run: |
+          brew install vcpkg
           git clone https://github.com/microsoft/vcpkg "$HOME/vcpkg"
+          export "VCPKG_ROOT=$HOME/vcpkg" >> $GITHUB_PATH
 
       - name: Configure
         run: |
           mkdir build
-          export VCPKG_ROOT="$HOME/vcpkg"
           CC=$(brew --prefix llvm)/bin/clang                                    \
           CXX=$(brew --prefix llvm)/bin/clang++                                 \
           cmake -S . -B build -G Ninja                                          \
