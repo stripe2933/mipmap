@@ -1,0 +1,74 @@
+#version 450
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_KHR_shader_subgroup_shuffle : require
+
+layout (set = 0, binding = 0, rgba8) uniform image2D mipImages[];
+
+layout (push_constant) uniform PushConstant {
+    uint baseLevel;
+    uint remainingMipLevels;
+} pc;
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+shared vec4 sharedData[2];
+
+void main(){
+    ivec2 sampleCoordinate = ivec2(gl_GlobalInvocationID.xy);
+
+    vec4 averageColor
+        = imageLoad(mipImages[pc.baseLevel], 2 * sampleCoordinate)
+        + imageLoad(mipImages[pc.baseLevel], 2 * sampleCoordinate + ivec2(1, 0))
+        + imageLoad(mipImages[pc.baseLevel], 2 * sampleCoordinate + ivec2(0, 1))
+        + imageLoad(mipImages[pc.baseLevel], 2 * sampleCoordinate + ivec2(1, 1));
+    averageColor /= 4.0;
+    imageStore(mipImages[pc.baseLevel + 1U], sampleCoordinate, averageColor);
+    if (pc.remainingMipLevels == 1U){
+        return;
+    }
+
+    averageColor += subgroupShuffleXor(averageColor, 1U /* 0b00001 */);
+    averageColor += subgroupShuffleXor(averageColor, 16U /* 0b10000 */);
+    averageColor /= 4.f;
+    if ((gl_SubgroupInvocationID & 17U /* 0b10001 */) == 17U) {
+        imageStore(mipImages[pc.baseLevel + 2U], sampleCoordinate >> 1, averageColor);
+    }
+    if (pc.remainingMipLevels == 2U){
+        return;
+    }
+
+    averageColor += subgroupShuffleXor(averageColor, 2U /* 0b000010 */);
+    averageColor += subgroupShuffleXor(averageColor, 32U /* 0b100000 */);
+    averageColor /= 4.f;
+
+    if ((gl_SubgroupInvocationID & 51U /* 0b110011 */) == 51U) {
+        imageStore(mipImages[pc.baseLevel + 3U], sampleCoordinate >> 2, averageColor);
+    }
+    if (pc.remainingMipLevels == 3U){
+        return;
+    }
+
+    averageColor += subgroupShuffleXor(averageColor, 4U /* 0b0000100 */);
+    averageColor += subgroupShuffleXor(averageColor, 64U /* 0b1000000 */);
+    averageColor /= 4.f;
+
+    if ((gl_SubgroupInvocationID & 119U /* 0b1110111 */) == 119U) {
+        imageStore(mipImages[pc.baseLevel + 4U], sampleCoordinate >> 3, averageColor);
+    }
+    if (pc.remainingMipLevels == 4U){
+        return;
+    }
+
+    averageColor += subgroupShuffleXor(averageColor, 8U /* 0b001000 */);
+    if (subgroupElect()) {
+        sharedData[gl_SubgroupID] = averageColor;
+    }
+
+    memoryBarrierShared();
+    barrier();
+
+    if (gl_SubgroupID == 1U){
+        averageColor = (sharedData[0] + sharedData[1]) / 4.f;
+        imageStore(mipImages[pc.baseLevel + 5U], sampleCoordinate >> 4, averageColor);
+    }
+}

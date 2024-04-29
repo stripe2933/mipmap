@@ -265,16 +265,12 @@ private:
 #ifdef NDEBUG
                 vku::Shader::convert([=] {
                     switch (subgroupSize) {
-                        case 8:
-                            return resources::shaders_subgroup_mipmap_8_comp();
-                        case 16:
-                            return resources::shaders_subgroup_mipmap_16_comp();
-                        case 32:
-                            return resources::shaders_subgroup_mipmap_32_comp();
-                        case 64:
-                            return resources::shaders_subgroup_mipmap_64_comp();
-                        default:
-                            throw std::runtime_error { "Unsupported subgroup size: subgroup size must be in range 8..=64." };
+                        case 8U:   return resources::shaders_subgroup_mipmap_8_comp();
+                        case 16U:  return resources::shaders_subgroup_mipmap_16_comp();
+                        case 32U:  return resources::shaders_subgroup_mipmap_32_comp();
+                        case 64U:  return resources::shaders_subgroup_mipmap_64_comp();
+                        case 128U: return resources::shaders_subgroup_mipmap_64_comp();
+                        default:   throw std::runtime_error { "Subgroup size must be ≥ 8." };
                     }
                 }()),
 #else

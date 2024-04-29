@@ -53,5 +53,5 @@ target_link_libraries(mipmap PRIVATE vku)
 
 compile_shaders(mipmap
     shaders/mipmap.comp
-    shaders/subgroup_mipmap_8.comp shaders/subgroup_mipmap_16.comp shaders/subgroup_mipmap_32.comp shaders/subgroup_mipmap_64.comp
+    shaders/subgroup_mipmap_8.comp shaders/subgroup_mipmap_16.comp shaders/subgroup_mipmap_32.comp shaders/subgroup_mipmap_64.comp shaders/subgroup_mipmap_128.comp
 )
