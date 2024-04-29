@@ -37,8 +37,8 @@ jobs:
           git clone https://github.com/llvm/llvm-project.git
           cd llvm-project
           mkdir build
-          CC=$(brew --prefix llvm@17)/bin/clang                    \
-          CXX=$(brew --prefix llvm@17)/bin/clang++                 \
+          CC=$(brew --prefix llvm@17)/bin/clang                 \
+          CXX=$(brew --prefix llvm@17)/bin/clang++              \
           cmake -G Ninja -S runtimes -B build                   \
             -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;libunwind"
           ninja -C build
@@ -53,11 +53,10 @@ jobs:
       - name: Configure
         run: |
           mkdir build
-          CC=$(brew --prefix llvm@17)/bin/clang                                    \
-          CXX=$(brew --prefix llvm@17)/bin/clang++                                 \
+          CC=$(brew --prefix llvm@17)/bin/clang                                 \
+          CXX=$(brew --prefix llvm@17)/bin/clang++                              \
           cmake -S . -B build -G Ninja                                          \
             -DCMAKE_BUILD_TYPE=Release                                          \
-            -DBUILD_SHARED_LIBS=OFF                                             \
             -DLIBCXX_BUILD=${{ github.workspace }}/llvm-project/build           \
             -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
 
