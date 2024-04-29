@@ -20,7 +20,7 @@ jobs:
       - name: Install Vulkan SDK
         uses: humbletim/install-vulkan-sdk@v1.1.1
 
-      - name: Get LLVM, Ninja via Homebrew
+      - name: Get LLVM and Ninja via Homebrew
         run: |
           brew install llvm@17 ninja
 
@@ -74,8 +74,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: deploy
     steps:
-      - uses: actions/checkout@v4
-
       - name: Download prebuilt executable
         uses: actions/download-artifact@v4
         with:
@@ -91,4 +89,7 @@ jobs:
           sudo apt-get install -y mesa-vulkan-drivers
 
       - name: Run
-        run: ./build/mipmap assets/texture.jpg build
+        run: |
+          cd build
+          wget "https://vulkan-tutorial.com/images/texture.jpg"
+          ./mipmap texture.jpg .
