@@ -453,10 +453,10 @@ public:
             const auto [result, timestamps] = queryPool.getResults<std::uint64_t>(
                 0, 2, 2 * sizeof(std::uint64_t), sizeof(std::uint64_t), vk::QueryResultFlagBits::e64);
             if (result == vk::Result::eSuccess) {
-                std::println("{}: {:.2f} us", label, (timestamps[1] - timestamps[0]) * timestampPeriod / 1e3f);
+                std::cout << label << ": " << (timestamps[1] - timestamps[0]) * timestampPeriod / 1e3f << " us\n";
             }
             else {
-                std::println(std::cerr, "Failed to get timestamp query: {}", to_string(result));
+                std::cerr << "Failed to get timestamp query: {}" << to_string(result) << '\n';
             }
         };
 
@@ -753,7 +753,7 @@ private:
 
 int main(int argc, char **argv) {
     if (argc != 3) {
-        std::println(std::cerr, "Usage: {} <image-path> <output-dir>", argv[0]);
+        std::cerr << "Usage: " << argv[0] << " <image-path> <output-dir>\n";
         std::exit(1);
     }
 
