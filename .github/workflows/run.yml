@@ -15,7 +15,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           echo "/home/linuxbrew/.linuxbrew/bin" >> $GITHUB_PATH
-          echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> $GITHUB_PATH
+          echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> "$GITHUB_ENV"
 
       - name: Install Vulkan SDK
         uses: humbletim/install-vulkan-sdk@v1.1.1
@@ -36,10 +36,11 @@ jobs:
           ninja -C build
 
       - name: Install vcpkg (macOS only)
+        if: runner.os == 'macOS'
         run: |
           brew install vcpkg
           git clone https://github.com/microsoft/vcpkg "$HOME/vcpkg"
-          export "VCPKG_ROOT=$HOME/vcpkg" >> $GITHUB_PATH
+          echo "VCPKG_ROOT=$HOME/vcpkg" >> "$GITHUB_ENV"
 
       - name: Configure
         run: |
