@@ -15,7 +15,7 @@ shared vec4 sharedData[8];
 
 void main(){
     ivec2 sampleCoordinate = ivec2(gl_WorkGroupSize.xy * gl_WorkGroupID.xy + uvec2(
-        (gl_LocalInvocationID.x & 7U) | (gl_LocalInvocationID.y & 8U),
+        (gl_LocalInvocationID.x & 7U) | (gl_LocalInvocationID.y & ~7U),
         ((gl_LocalInvocationID.y << 1U) | (gl_LocalInvocationID.x >> 3U)) & 15U
     ));
 
@@ -33,7 +33,7 @@ void main(){
     averageColor += subgroupShuffleXor(averageColor, 1U /* 0b0001 */);
     averageColor += subgroupShuffleXor(averageColor, 8U /* 0b1000 */);
     averageColor /= 4.f;
-    if ((gl_SubgroupInvocationID & 9 /* 0b1001 */) == 9) {
+    if ((gl_SubgroupInvocationID & 9U /* 0b1001 */) == 9U) {
         imageStore(mipImages[pc.baseLevel + 2U], sampleCoordinate >> 1, averageColor);
     }
     if (pc.remainingMipLevels == 2U){
@@ -52,47 +52,24 @@ void main(){
     }
 
     averageColor += subgroupShuffleXor(averageColor, 4U /* 0b00100 */);
-    if (gl_SubgroupSize == 64U){
-        averageColor += subgroupShuffleXor(averageColor, 32U /* 0b100000 */);
-        averageColor /= 4.f;
-
-        if (subgroupElect()) {
-            imageStore(mipImages[pc.baseLevel + 4U], sampleCoordinate >> 3, averageColor);
-        }
+    if (subgroupElect()){
+        sharedData[gl_SubgroupID] = averageColor;
     }
-    else{
-        if (subgroupElect()){
-            sharedData[gl_SubgroupID] = averageColor;
-        }
 
-        memoryBarrierShared();
-        barrier();
+    memoryBarrierShared();
+    barrier();
 
-        if ((gl_SubgroupID & 1U) == 1U){
-            averageColor = sharedData[gl_SubgroupID ^ 1U] + sharedData[gl_SubgroupID];
-            averageColor /= 4.f;
-            imageStore(mipImages[pc.baseLevel + 4U], sampleCoordinate >> 3, averageColor);
-        }
+    if ((gl_SubgroupID & 1U) == 1U){
+        averageColor = sharedData[gl_SubgroupID ^ 1U] + sharedData[gl_SubgroupID];
+        averageColor /= 4.f;
+        imageStore(mipImages[pc.baseLevel + 4U], sampleCoordinate >> 3, averageColor);
     }
     if (pc.remainingMipLevels == 4U){
         return;
     }
 
-    if (gl_SubgroupSize == 64U){
-        sharedData[gl_SubgroupID] = averageColor;
-
-        memoryBarrierShared();
-        barrier();
-
-        if (gl_LocalInvocationIndex == 0U){
-            averageColor = (sharedData[0] + sharedData[1] + sharedData[2] + sharedData[3]) / 4.f;
-            imageStore(mipImages[pc.baseLevel + 5U], sampleCoordinate >> 4, averageColor);
-        }
-    }
-    else{
-        if (gl_LocalInvocationIndex == 0U){
-            averageColor = (sharedData[0] + sharedData[1] + sharedData[2] + sharedData[3] + sharedData[4] + sharedData[5] + sharedData[6] + sharedData[7]) / 16.f;
-            imageStore(mipImages[pc.baseLevel + 5U], sampleCoordinate >> 4, averageColor);
-        }
+    if (gl_LocalInvocationIndex == 0U){
+        averageColor = (sharedData[0] + sharedData[1] + sharedData[2] + sharedData[3] + sharedData[4] + sharedData[5] + sharedData[6] + sharedData[7]) / 16.f;
+        imageStore(mipImages[pc.baseLevel + 5U], sampleCoordinate >> 4, averageColor);
     }
 }

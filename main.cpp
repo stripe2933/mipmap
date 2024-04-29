@@ -179,10 +179,11 @@ public:
 
     explicit SubgroupMipmapComputer(
         const vk::raii::Device &device,
-        std::uint32_t mipImageCount
+        std::uint32_t mipImageCount,
+        std::uint32_t subgroupSize
     ) : descriptorSetLayouts { device, mipImageCount },
         pipelineLayout { createPipelineLayout(device) },
-        pipeline { createPipeline(device) } { }
+        pipeline { createPipeline(device, subgroupSize) } { }
 
     auto compute(
         vk::CommandBuffer commandBuffer,
@@ -255,15 +256,29 @@ private:
     }
 
     [[nodiscard]] auto createPipeline(
-        const vk::raii::Device &device
+        const vk::raii::Device &device,
+        std::uint32_t subgroupSize
     ) const -> vk::raii::Pipeline {
         const auto [_, stages] = vku::createStages(
             device,
             vku::Shader { vk::ShaderStageFlagBits::eCompute,
 #ifdef NDEBUG
-                vku::Shader::convert(resources::shaders_subgroup_mipmap_comp()),
+                vku::Shader::convert([=] {
+                    switch (subgroupSize) {
+                        case 8:
+                            return resources::shaders_subgroup_mipmap_8_comp();
+                        case 16:
+                            return resources::shaders_subgroup_mipmap_16_comp();
+                        case 32:
+                            return resources::shaders_subgroup_mipmap_32_comp();
+                        case 64:
+                            return resources::shaders_subgroup_mipmap_64_comp();
+                        default:
+                            throw std::runtime_error { "Unsupported subgroup size: subgroup size must be in range 8..=64." };
+                    }
+                }()),
 #else
-                vku::Shader::readCode("shaders/subgroup_mipmap.comp.spv"),
+                vku::Shader::readCode(std::format("shaders/subgroup_mipmap_{}.comp.spv", subgroupSize)),
 #endif
             });
         return { device, nullptr, vk::ComputePipelineCreateInfo {
@@ -552,7 +567,13 @@ public:
         {
             const vku::Image &targetImage = get<2>(baseImages);
 
-            const SubgroupMipmapComputer subgroupMipmapComputer { device, targetImage.mipLevels };
+            const std::uint32_t subgroupSize
+                = physicalDevice.getProperties2<
+                    vk::PhysicalDeviceProperties2,
+                    vk::PhysicalDeviceSubgroupProperties>()
+                .get<vk::PhysicalDeviceSubgroupProperties>()
+                .subgroupSize;
+            const SubgroupMipmapComputer subgroupMipmapComputer { device, targetImage.mipLevels, subgroupSize };
             const SubgroupMipmapComputer::DescriptorSets descriptorSets { *device, *descriptorPool, subgroupMipmapComputer.descriptorSetLayouts };
 
             const std::vector imageMipViews
@@ -675,8 +696,8 @@ private:
 
                 const vk::StructureChain properties2
                     = physicalDevice.getProperties2<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceSubgroupProperties>();
-                if (auto subgroupProperties = properties2.get<vk::PhysicalDeviceSubgroupProperties>(); subgroupProperties.subgroupSize < 32){
-                    // Subgroup size must be at lest 32.
+                if (auto subgroupProperties = properties2.get<vk::PhysicalDeviceSubgroupProperties>(); subgroupProperties.subgroupSize < 8){
+                    // Subgroup size must be at lest 8.
                     return 0U;
                 }
                 else if (!vku::contains(subgroupProperties.supportedOperations, vk::SubgroupFeatureFlagBits::eShuffle)) {
