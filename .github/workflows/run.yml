@@ -22,9 +22,17 @@ jobs:
 
       - name: Get LLVM, Ninja via Homebrew
         run: |
-          brew install llvm ninja
+          brew install llvm@17 ninja
 
-      - name: Make local build of libc++ with Standard Library Module
+      - name: Cache libc++ build
+        id: cache-libcxx
+        uses: actions/cache@v4
+        with:
+          path: llvm-project/build
+          key: ${{ runner.os }}-libcxx
+
+      - name: Make local build of libc++ with Standard Library Module (when cache miss)
+        if: steps.cache-libcxx.outputs.cache-hit != 'true'
         run: |
           git clone https://github.com/llvm/llvm-project.git
           cd llvm-project
