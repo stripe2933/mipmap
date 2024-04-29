@@ -49,8 +49,7 @@ void main(){
     barrier();
 
     if ((gl_SubgroupID & 1U) == 1U){
-        averageColor = sharedData[gl_SubgroupID ^ 1U] + sharedData[gl_SubgroupID];
-        averageColor /= 4.f;
+        averageColor = (sharedData[gl_SubgroupID] + sharedData[gl_SubgroupID ^ 1U]) / 4.f;
         imageStore(mipImages[pc.baseLevel + 3U], sampleCoordinate >> 2, averageColor);
     }
     if (pc.remainingMipLevels == 3U){
@@ -58,8 +57,7 @@ void main(){
     }
 
     if ((gl_SubgroupID & 11U) == 11U){
-        averageColor = sharedData[gl_SubgroupID] + sharedData[gl_SubgroupID ^ 2U] + sharedData[gl_SubgroupID ^ 8U] + sharedData[gl_SubgroupID ^ 10U];
-        averageColor /= 4.f;
+        averageColor = (sharedData[gl_SubgroupID] + sharedData[gl_SubgroupID ^ 1U] + sharedData[gl_SubgroupID ^ 2U] + sharedData[gl_SubgroupID ^ 3U] + sharedData[gl_SubgroupID ^ 8U] + sharedData[gl_SubgroupID ^ 9U] + sharedData[gl_SubgroupID ^ 10U] + sharedData[gl_SubgroupID ^ 11U]) / 16.f;
         imageStore(mipImages[pc.baseLevel + 4U], sampleCoordinate >> 3, averageColor);
     }
     if (pc.remainingMipLevels == 4U){

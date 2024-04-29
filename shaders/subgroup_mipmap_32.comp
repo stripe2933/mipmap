@@ -60,8 +60,7 @@ void main(){
     barrier();
 
     if ((gl_SubgroupID & 1U) == 1U){
-        averageColor = sharedData[gl_SubgroupID ^ 1U] + sharedData[gl_SubgroupID];
-        averageColor /= 4.f;
+        averageColor = (sharedData[gl_SubgroupID] + sharedData[gl_SubgroupID ^ 1U]) / 4.f;
         imageStore(mipImages[pc.baseLevel + 4U], sampleCoordinate >> 3, averageColor);
     }
     if (pc.remainingMipLevels == 4U){

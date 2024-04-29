@@ -51,7 +51,6 @@ void main(){
         return;
     }
 
-    averageColor += subgroupShuffleXor(averageColor, 4U /* 0b00100 */);
     if (subgroupElect()){
         sharedData[gl_SubgroupID] = averageColor;
     }
@@ -60,8 +59,7 @@ void main(){
     barrier();
 
     if ((gl_SubgroupID & 5U) == 5U){
-        averageColor = sharedData[gl_SubgroupID] + sharedData[gl_SubgroupID ^ 1U] + sharedData[gl_SubgroupID ^ 4U] + sharedData[gl_SubgroupID ^ 5U];
-        averageColor /= 4.f;
+        averageColor = (sharedData[gl_SubgroupID] + sharedData[gl_SubgroupID ^ 1U] + sharedData[gl_SubgroupID ^ 4U] + sharedData[gl_SubgroupID ^ 5U]) / 4.f;
         imageStore(mipImages[pc.baseLevel + 4U], sampleCoordinate >> 3, averageColor);
     }
     if (pc.remainingMipLevels == 4U){
