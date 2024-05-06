@@ -20,8 +20,8 @@ namespace vku{
             vk::PhysicalDevice physicalDevice,
             vk::Queue graphicsQueue,
             vk::DescriptorPool descriptorPool,
-            std::uint32_t minImageCount,
-            std::uint32_t imageCount
+            std::uint32_t frameCount,
+            vk::Format colorAttachmentFormat
         ) -> void {
             ImGuiIO &io                = ImGui::GetIO();
             io.DisplaySize             = getFramebufferSize(window);
@@ -35,12 +35,42 @@ namespace vku{
                 .Device = device,
                 .Queue = graphicsQueue,
                 .DescriptorPool = descriptorPool,
-                .MinImageCount = minImageCount,
-                .ImageCount = imageCount,
+                .MinImageCount = frameCount,
+                .ImageCount = frameCount,
                 .UseDynamicRendering = true,
-                .ColorAttachmentFormat = VK_FORMAT_B8G8R8A8_UNORM,
+                .ColorAttachmentFormat = static_cast<VkFormat>(colorAttachmentFormat),
             };
             ImGui_ImplVulkan_Init(&initInfo, nullptr);
+        }
+
+        static auto init(
+            GLFWwindow *window,
+            vk::Device device,
+            vk::Instance instance,
+            vk::PhysicalDevice physicalDevice,
+            vk::Queue graphicsQueue,
+            vk::DescriptorPool descriptorPool,
+            std::uint32_t frameCount,
+            vk::RenderPass renderPass,
+            std::uint32_t subpass
+        ) -> void {
+            ImGuiIO &io                = ImGui::GetIO();
+            io.DisplaySize             = getFramebufferSize(window);
+            io.FontGlobalScale         = 1.0f;
+            io.DisplayFramebufferScale = getContentScale(window);
+            ImGui_ImplGlfw_InitForVulkan(window, true);
+
+            ImGui_ImplVulkan_InitInfo initInfo {
+                .Instance = instance,
+                .PhysicalDevice = physicalDevice,
+                .Device = device,
+                .Queue = graphicsQueue,
+                .DescriptorPool = descriptorPool,
+                .Subpass = subpass,
+                .MinImageCount = frameCount,
+                .ImageCount = frameCount,
+            };
+            ImGui_ImplVulkan_Init(&initInfo, renderPass);
         }
 
         static auto shutdown() -> void {

@@ -90,5 +90,16 @@ export {
     [[nodiscard]] constexpr auto contains(vk::Flags<T> flags, vk::Flags<T> flag) noexcept -> bool {
         return (flags & flag) == flag;
     }
+
+    template <std::unsigned_integral T>
+    [[nodiscard]] constexpr auto divCeil(T num, T denom) noexcept -> T {
+        return (num / denom) + (num % denom != 0);
+    }
+
+    [[nodiscard]] constexpr auto workgroupTotal(
+        std::span<const std::uint32_t, 3> workgroupCount
+    ) noexcept -> std::uint32_t {
+        return workgroupCount[0] * workgroupCount[1] * workgroupCount[2];
+    }
 }
 }

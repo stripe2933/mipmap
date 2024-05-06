@@ -10,6 +10,7 @@ export import std;
     INDEX_SEQ(Is, N, {                              \
         return std::array { (Is, __VA_ARGS__)... }; \
     })
+#define FWD(...) static_cast<decltype(__VA_ARGS__)&&>(__VA_ARGS__)
 
 namespace ranges {
     export template <std::size_t N>
@@ -25,4 +26,17 @@ namespace ranges {
 #pragma clang diagnostic pop
         }
     };
+
+namespace views {
+    struct deref_fn : std::ranges::range_adaptor_closure<deref_fn> {
+        static constexpr auto operator()(
+            std::ranges::input_range auto &&r
+        ) {
+            return FWD(r) | std::views::transform([](auto &&x) -> decltype(auto) {
+                return *FWD(x);
+            });
+        }
+    };
+    export constexpr deref_fn deref;
+}
 }

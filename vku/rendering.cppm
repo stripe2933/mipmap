@@ -285,8 +285,8 @@ namespace vku {
         [[nodiscard]] auto createColorImage(
             vma::Allocator allocator,
             vk::Format format,
-            vk::ImageUsageFlags usage = {},
-            const vma::AllocationCreateInfo &allocationCreateInfo = { {}, vma::MemoryUsage::eAutoPreferDevice }
+            vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eTransientAttachment,
+            const vma::AllocationCreateInfo &allocationCreateInfo = { {}, vma::MemoryUsage::eAutoPreferDevice, {}, vk::MemoryPropertyFlagBits::eLazilyAllocated }
         ) const -> AllocatedImage {
             return createAttachmentImage(allocator, format, sampleCount, usage | vk::ImageUsageFlagBits::eColorAttachment, allocationCreateInfo);
         }
@@ -351,8 +351,8 @@ namespace vku {
         [[nodiscard]] auto createDepthStencilImage(
             vma::Allocator allocator,
             vk::Format format,
-            vk::ImageUsageFlags usage = {},
-            const vma::AllocationCreateInfo &allocationCreateInfo = { {}, vma::MemoryUsage::eAutoPreferDevice }
+            vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eTransientAttachment,
+            const vma::AllocationCreateInfo &allocationCreateInfo = { {}, vma::MemoryUsage::eAutoPreferDevice, {}, vk::MemoryPropertyFlagBits::eLazilyAllocated }
         ) const -> AllocatedImage {
             return createAttachmentImage(allocator, format, sampleCount, usage | vk::ImageUsageFlagBits::eDepthStencilAttachment, allocationCreateInfo);
         }

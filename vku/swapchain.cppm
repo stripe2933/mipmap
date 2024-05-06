@@ -107,7 +107,8 @@ namespace details {
                         {},
                         fullSubresourceRange(),
                     } };
-                }) | std::ranges::to<std::vector>();
+                })
+                | std::ranges::to<std::vector>();
         }
     };
 }

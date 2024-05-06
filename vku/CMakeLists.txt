@@ -100,7 +100,6 @@ target_sources(vku PUBLIC
         command.cppm
         config.cppm
         descriptor.cppm
-        frame.cppm
         image.cppm
         mod.cppm
         pipeline.cppm

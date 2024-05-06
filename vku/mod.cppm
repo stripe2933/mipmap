@@ -4,7 +4,6 @@ export import :buffer;
 export import :command;
 export import :config;
 export import :descriptor;
-export import :frame;
 export import :image;
 #ifdef VKU_USE_IMGUI
 export import :imgui;
