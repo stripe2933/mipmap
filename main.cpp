@@ -7,6 +7,7 @@
 import std;
 import image_data;
 import missing_std;
+import ranges;
 import vku;
 
 #define INDEX_SEQ(Is, N, ...)                          \
@@ -19,11 +20,24 @@ import vku;
     })
 #define FWD(...) static_cast<decltype(__VA_ARGS__) &&>(__VA_ARGS__)
 
-template <std::unsigned_integral T>
-constexpr auto divCeil(T num, T denom) noexcept -> T {
-    return num / denom + num % denom;
-}
-
+/**
+ * Compute image mipmaps.
+ *
+ * @code
+ * // Create pipeline and corresponding descriptor sets.
+ * MipmapComputer mipmapComputer { device, mipImageCount }; // mipImageCount = targetImage.mipLevels
+ * MipmapComputer::DescriptorSets descriptorSets { device, descriptorPool, mipmapComputer.descriptorSetLayouts };
+ *
+ * // Update descriptorSets with image's mip views.
+ * device.updateDescriptorSets(
+ *     descriptorSets.getDescriptorWrites0(imageMipViews | ranges::views::deref).get(),
+ *     {});
+ *
+ * // Execute compute shader.
+ * // Image layout must be VK_IMAGE_LAYOUT_GENERAL.
+ * mipmapComputer.compute(commandBuffer, descriptorSets, baseImageExtent, targetImage.mipLevels); // baseImageExtent = targetImage.extent
+ * @endcode
+ */
 class MipmapComputer {
 public:
     struct DescriptorSetLayouts : vku::DescriptorSetLayouts<1> {
@@ -93,8 +107,8 @@ public:
 
             commandBuffer.pushConstants<PushConstant>(*pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, PushConstant { srcLevel });
             commandBuffer.dispatch(
-                divCeil(baseImageExtent.width >> dstLevel, 16U),
-                divCeil(baseImageExtent.height >> dstLevel, 16U),
+                vku::divCeil(baseImageExtent.width >> dstLevel, 16U),
+                vku::divCeil(baseImageExtent.height >> dstLevel, 16U),
                 1);
         }
     }
@@ -134,6 +148,24 @@ private:
     }
 };
 
+/**
+ * Compute image mipmaps using subgroup shuffle operation. More efficient than MipmapComputer.
+ *
+ * @code
+ * // Create pipeline and corresponding descriptor sets.
+ * SubgroupMipmapComputer subgroupMipmapComputer { device, mipImageCount, subgroupSize }; // mipImageCount = targetImage.mipLevels
+ * SubgroupMipmapComputer::DescriptorSets descriptorSets { device, descriptorPool, subgroupMipmapComputer.descriptorSetLayouts };
+ *
+ * // Update descriptorSets with image's mip views.
+ * device.updateDescriptorSets(
+ *     descriptorSets.getDescriptorWrites0(imageMipViews | ranges::views::deref).get(),
+ *     {});
+ *
+ * // Execute compute shader.
+ * // Image layout must be VK_IMAGE_LAYOUT_GENERAL.
+ * subgroupMipmapComputer.compute(commandBuffer, descriptorSets, baseImageExtent, targetImage.mipLevels); // baseImageExtent = targetImage.extent
+ * @endcode
+ */
 class SubgroupMipmapComputer {
 public:
     struct DescriptorSetLayouts : vku::DescriptorSetLayouts<1> {
@@ -365,12 +397,6 @@ struct Queues {
 
 class MainApp : vku::Instance, vku::Device<QueueFamilyIndices, Queues> {
 public:
-    vku::Allocator allocator = createAllocator();
-    vk::raii::DescriptorPool descriptorPool = createDescriptorPool();
-    vk::raii::CommandPool computeCommandPool = createCommandPool(queueFamilyIndices.compute),
-                          graphicsCommandPool = createCommandPool(queueFamilyIndices.graphics),
-                          transferCommandPool = createCommandPool(queueFamilyIndices.transfer);
-
     MainApp()
         : Instance { createInstance() },
           Device { createDevice() } { }
@@ -379,6 +405,7 @@ public:
         const std::filesystem::path &imagePath,
         const std::filesystem::path &outputDir
     ) const -> void {
+        // Load image, calculate the maximum mip levels.
         const ImageData<std::uint8_t> imageData { imagePath, 4 };
         const vk::Extent2D baseImageExtent { static_cast<std::uint32_t>(imageData.width), static_cast<std::uint32_t>(imageData.height) };
         const std::uint32_t imageMipLevels = vku::Image::maxMipLevels(baseImageExtent);
@@ -444,6 +471,7 @@ public:
         });
         queues.transfer.waitIdle();
 
+        // Query pool for timestamp query.
         const vk::raii::QueryPool queryPool { device, vk::QueryPoolCreateInfo {
             {},
             vk::QueryType::eTimestamp,
@@ -507,11 +535,11 @@ public:
             printElapsedTime("Blit based mipmap generation");
         }
 
-
         // 2. Compute shader mipmap generation with per-level barriers.
         {
             const vku::Image &targetImage = get<1>(baseImages);
 
+            // Prepare the pipeline and descriptor set.
             const MipmapComputer mipmapComputer { device, targetImage.mipLevels };
             const MipmapComputer::DescriptorSets descriptorSets { *device, *descriptorPool, mipmapComputer.descriptorSetLayouts };
 
@@ -531,7 +559,7 @@ public:
 
             // Update descriptor sets.
             device.updateDescriptorSets(
-                descriptorSets.getDescriptorWrites0(imageMipViews | std::views::transform([](const auto &x) { return *x; })).get(),
+                descriptorSets.getDescriptorWrites0(imageMipViews | ranges::views::deref).get(),
                 {});
 
             vku::executeSingleCommand(*device, *computeCommandPool, queues.compute, [&](vk::CommandBuffer commandBuffer) {
@@ -563,12 +591,15 @@ public:
         {
             const vku::Image &targetImage = get<2>(baseImages);
 
+            // Get subgroup size from physical device properties.
             const std::uint32_t subgroupSize
                 = physicalDevice.getProperties2<
                     vk::PhysicalDeviceProperties2,
                     vk::PhysicalDeviceSubgroupProperties>()
                 .get<vk::PhysicalDeviceSubgroupProperties>()
                 .subgroupSize;
+
+            // Prepare the pipeline and descriptor set.
             const SubgroupMipmapComputer subgroupMipmapComputer { device, targetImage.mipLevels, subgroupSize };
             const SubgroupMipmapComputer::DescriptorSets descriptorSets { *device, *descriptorPool, subgroupMipmapComputer.descriptorSetLayouts };
 
@@ -588,7 +619,7 @@ public:
 
             // Update descriptor sets.
             device.updateDescriptorSets(
-                descriptorSets.getDescriptorWrites0(imageMipViews | std::views::transform([](const auto &x) { return *x; })).get(),
+                descriptorSets.getDescriptorWrites0(imageMipViews | ranges::views::deref).get(),
                 {});
 
             vku::executeSingleCommand(*device, *computeCommandPool, queues.compute, [&](vk::CommandBuffer commandBuffer) {
@@ -616,6 +647,7 @@ public:
             printElapsedTime("Compute shader mipmap generation with subgroup operation");
         }
 
+        // Create host buffers for destaging.
         const vk::Extent2D destagingImageExtent { baseImageExtent.width * 3U / 2U, baseImageExtent.height };
         const std::array destagingBuffers
             = ARRAY_OF(3, vku::MappedBuffer { vku::AllocatedBuffer { allocator, vk::BufferCreateInfo {
@@ -681,8 +713,14 @@ public:
     }
 
 private:
+    vku::Allocator allocator = createAllocator();
+    vk::raii::DescriptorPool descriptorPool = createDescriptorPool();
+    vk::raii::CommandPool computeCommandPool = createCommandPool(queueFamilyIndices.compute),
+                          graphicsCommandPool = createCommandPool(queueFamilyIndices.graphics),
+                          transferCommandPool = createCommandPool(queueFamilyIndices.transfer);
+
     [[nodiscard]] auto createDevice() const -> Device {
-        return Device { instance, Device::Config<std::tuple<vk::PhysicalDeviceHostQueryResetFeatures, vk::PhysicalDeviceDescriptorIndexingFeatures>> /* TODO.CXX20: remove when can be deduced */ {
+        return Device { instance, Device::Config<std::tuple<vk::PhysicalDeviceHostQueryResetFeatures, vk::PhysicalDeviceDescriptorIndexingFeatures>> /* TODO.CXX20: can be deduced */ {
             .physicalDeviceRater = [](vk::PhysicalDevice physicalDevice) {
                 if (const vk::PhysicalDeviceLimits limits = physicalDevice.getProperties().limits;
                     limits.timestampPeriod == 0.f || !limits.timestampComputeAndGraphics) {
