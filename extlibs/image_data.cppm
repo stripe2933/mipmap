@@ -66,6 +66,13 @@ public:
         checkError();
     }
 
+    [[nodiscard]] auto getSpan() const noexcept -> std::span<const T> {
+        return { data.get(), static_cast<std::size_t>(width * height * channels) };
+    }
+    [[nodiscard]] auto getSpan() noexcept -> std::span<T> {
+        return { data.get(), static_cast<std::size_t>(width * height * channels) };
+    }
+
 private:
     auto checkError() const -> void {
         if (!data) {

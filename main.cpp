@@ -411,10 +411,7 @@ public:
         const std::uint32_t imageMipLevels = vku::Image::maxMipLevels(baseImageExtent);
 
         // Load image into staging buffer.
-        const vku::MappedBuffer imageStagingBuffer = vku::MappedBuffer::fromRange(
-            allocator,
-            std::views::counted(imageData.data.get(), imageData.width * imageData.height * imageData.channels),
-            vk::BufferUsageFlagBits::eTransferSrc /* staging src */);
+        const vku::MappedBuffer imageStagingBuffer = vku::MappedBuffer::fromRange(allocator, imageData.getSpan(), vk::BufferUsageFlagBits::eTransferSrc /* staging src */);
 
         // Create 3 device-local images (each images have different usage).
         const auto createBaseImage = [&](vk::ImageUsageFlags usage) {
