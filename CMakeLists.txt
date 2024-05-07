@@ -27,12 +27,12 @@ include(${PROJECT_BINARY_DIR}/CPM.cmake)
 
 find_package(Stb REQUIRED)
 
-# ----------------
-# Internal dependencies.
-# ----------------
-
 set(VKU_VK_VERSION 1002000)
-add_subdirectory(vku)
+CPMAddPackage(
+    NAME vku
+    GITHUB_REPOSITORY stripe2933/vku
+    GIT_TAG main
+)
 
 # ----------------
 # Project executables.
