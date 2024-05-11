@@ -28,11 +28,7 @@ include(${PROJECT_BINARY_DIR}/CPM.cmake)
 find_package(Stb REQUIRED)
 
 set(VKU_VK_VERSION 1002000)
-CPMAddPackage(
-    NAME vku
-    GITHUB_REPOSITORY stripe2933/vku
-    GIT_TAG main
-)
+CPMAddPackage("gh:stripe2933/vku#main")
 
 # ----------------
 # Project executables.
@@ -52,7 +48,7 @@ target_link_libraries(mipmap PRIVATE vku)
 # Shader compilations.
 # ----------------
 
-compile_shaders(mipmap
+target_compile_shaders(mipmap
     shaders/mipmap.comp
     shaders/subgroup_mipmap_8.comp shaders/subgroup_mipmap_16.comp shaders/subgroup_mipmap_32.comp shaders/subgroup_mipmap_64.comp shaders/subgroup_mipmap_128.comp
 )

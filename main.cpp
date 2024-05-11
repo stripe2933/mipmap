@@ -395,11 +395,11 @@ struct Queues {
     }
 };
 
-class MainApp : vku::Instance, vku::Device<QueueFamilyIndices, Queues> {
+class MainApp : vku::Instance, vku::Gpu<QueueFamilyIndices, Queues> {
 public:
     MainApp()
         : Instance { createInstance() },
-          Device { createDevice() } { }
+          Gpu { createGpu() } { }
 
     auto run(
         const std::filesystem::path &imagePath,
@@ -647,6 +647,8 @@ public:
         // Create host buffers for destaging.
         const vk::Extent2D destagingImageExtent { baseImageExtent.width * 3U / 2U, baseImageExtent.height };
         const std::array destagingBuffers
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-value"
             = ARRAY_OF(3, vku::MappedBuffer { vku::AllocatedBuffer { allocator, vk::BufferCreateInfo {
                 {},
                 blockSize(vk::Format::eR8G8B8A8Unorm) * destagingImageExtent.width * destagingImageExtent.height,
@@ -655,6 +657,7 @@ public:
                 vma::AllocationCreateFlagBits::eHostAccessRandom | vma::AllocationCreateFlagBits::eMapped,
                 vma::MemoryUsage::eAuto,
             } } });
+#pragma clang diagnostic pop
 
         // Copy from baseImages[0..3] to destagingBuffers[0..3].
         vku::executeSingleCommand(*device, *transferCommandPool, queues.transfer, [&](vk::CommandBuffer commandBuffer) {
@@ -716,8 +719,8 @@ private:
                           graphicsCommandPool = createCommandPool(queueFamilyIndices.graphics),
                           transferCommandPool = createCommandPool(queueFamilyIndices.transfer);
 
-    [[nodiscard]] auto createDevice() const -> Device {
-        return Device { instance, Device::Config<std::tuple<vk::PhysicalDeviceHostQueryResetFeatures, vk::PhysicalDeviceDescriptorIndexingFeatures>> /* TODO.CXX20: can be deduced */ {
+    [[nodiscard]] auto createGpu() const -> Gpu {
+        return Gpu { instance, Gpu::Config<std::tuple<vk::PhysicalDeviceHostQueryResetFeatures, vk::PhysicalDeviceDescriptorIndexingFeatures>> /* TODO.CXX20: can be deduced */ {
             .physicalDeviceRater = [](vk::PhysicalDevice physicalDevice) {
                 if (const vk::PhysicalDeviceLimits limits = physicalDevice.getProperties().limits;
                     limits.timestampPeriod == 0.f || !limits.timestampComputeAndGraphics) {
