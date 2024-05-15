@@ -6,7 +6,6 @@
 
 import std;
 import image_data;
-import missing_std;
 import ranges;
 import vku;
 
@@ -95,7 +94,7 @@ public:
     ) const -> void {
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, *pipeline);
         commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *pipelineLayout, 0, descriptorSets, {});
-        for (auto [srcLevel, dstLevel] : std::views::iota(0U, mipLevels) | std::views::pairwise) {
+        for (auto [srcLevel, dstLevel] : std::views::iota(0U, mipLevels) | ranges::views::pairwise) {
             if (srcLevel != 0U) {
                 constexpr vk::MemoryBarrier barrier {
                     vk::AccessFlagBits::eShaderWrite, vk::AccessFlagBits::eShaderRead,
@@ -251,7 +250,7 @@ public:
 
         commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, *pipeline);
         commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *pipelineLayout, 0, descriptorSets, {});
-        for (const auto &[idx, mipIndices] : indexChunks | std::views::enumerate) {
+        for (const auto &[idx, mipIndices] : indexChunks | ranges::views::enumerate) {
             if (idx != 0) {
                 constexpr vk::MemoryBarrier barrier {
                     vk::AccessFlagBits::eShaderWrite, vk::AccessFlagBits::eShaderRead,
@@ -493,7 +492,7 @@ public:
                 commandBuffer.resetQueryPool(*queryPool, 0, 2);
                 commandBuffer.writeTimestamp(vk::PipelineStageFlagBits::eTopOfPipe, *queryPool, 0);
 
-                for (auto [srcLevel, dstLevel] : std::views::iota(0U, targetImage.mipLevels) | std::views::pairwise) {
+                for (auto [srcLevel, dstLevel] : std::views::iota(0U, targetImage.mipLevels) | ranges::views::pairwise) {
                     const std::array barriers {
                         vk::ImageMemoryBarrier {
                             srcLevel == 0U ? vk::AccessFlagBits::eNone : vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eTransferRead,
