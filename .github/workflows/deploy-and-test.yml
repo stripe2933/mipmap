@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup LLVM, Ninja and vcpkg
+      - name: Setup LLVM, Ninja and vcpkg (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get install -y ninja-build
@@ -19,7 +19,7 @@ jobs:
           echo "CXX=/usr/bin/clang++-18" >> "$GITHUB_ENV"
           echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> "$GITHUB_ENV"
 
-      - name: Setup LLVM, Ninja and vcpkg
+      - name: Setup LLVM, Ninja and vcpkg (macOS)
         if: runner.os == 'macOS'
         run: |
           brew update # Ensure to use a latest version of Homebrew
@@ -68,7 +68,7 @@ jobs:
           path: build/mipmap
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: deploy
     steps:
       - name: Download prebuilt executable
