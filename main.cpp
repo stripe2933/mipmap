@@ -720,7 +720,7 @@ private:
                           transferCommandPool = createCommandPool(queueFamilyIndices.transfer);
 
     [[nodiscard]] auto createGpu() const -> Gpu {
-        return Gpu { instance, Gpu::Config<std::tuple<vk::PhysicalDeviceHostQueryResetFeatures, vk::PhysicalDeviceDescriptorIndexingFeatures>> /* TODO.CXX20: can be deduced */ {
+        return Gpu { instance, Gpu::Config {
             .physicalDeviceRater = [](vk::PhysicalDevice physicalDevice) {
                 if (const vk::PhysicalDeviceLimits limits = physicalDevice.getProperties().limits;
                     limits.timestampPeriod == 0.f || !limits.timestampComputeAndGraphics) {
