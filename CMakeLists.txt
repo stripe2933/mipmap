@@ -39,7 +39,6 @@ target_sources(mipmap PRIVATE
     FILE_SET CXX_MODULES
     FILES
         extlibs/image_data.cppm
-        extlibs/missing_std.cppm
         extlibs/ranges.cppm
 )
 target_link_libraries(mipmap PRIVATE vku)
