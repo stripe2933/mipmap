@@ -1,9 +1,9 @@
-name: Deploy and Test
+name: macOS
 
 on: [push]
 
 jobs:
-  deploy:
+  deploy-and-test:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
