@@ -1,33 +1,19 @@
-name: Deploy and Test
+name: Linux
 
 on: [push]
 
 jobs:
   deploy:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-24.04, macos-latest]
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup LLVM, Ninja and vcpkg (Linux)
-        if: runner.os == 'Linux'
+      - name: Setup LLVM, Ninja and vcpkg
         run: |
           sudo apt-get install -y ninja-build
           echo "CC=/usr/bin/clang-18" >> "$GITHUB_ENV"
           echo "CXX=/usr/bin/clang++-18" >> "$GITHUB_ENV"
           echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> "$GITHUB_ENV"
-
-      - name: Setup LLVM, Ninja and vcpkg (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew update # Ensure to use a latest version of Homebrew
-          brew install llvm ninja
-          echo "CC=$(brew --prefix llvm)/bin/clang" >> "$GITHUB_ENV"
-          echo "CXX=$(brew --prefix llvm)/bin/clang++" >> "$GITHUB_ENV"
-          git clone https://github.com/microsoft/vcpkg "$HOME/vcpkg"
-          echo "VCPKG_ROOT=$HOME/vcpkg" >> "$GITHUB_ENV"
 
       - name: Cache libc++ build
         id: cache-libcxx
@@ -61,26 +47,6 @@ jobs:
       - name: Build
         run: cmake --build build -t mipmap --config Release
 
-      - name: Upload executable as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: mipmap-${{ runner.os }}
-          path: build/mipmap
-
-  test:
-    runs-on: ubuntu-24.04
-    needs: deploy
-    steps:
-      - name: Download prebuilt executable
-        uses: actions/download-artifact@v4
-        with:
-          name: mipmap-${{ runner.os }}
-          path: build
-
-      - name: Set file execution permission
-        run: |
-          chmod +x build/mipmap
-
       - name: Install Mesa Vulkan drivers
         run: |
           sudo apt-get install -y mesa-vulkan-drivers
@@ -90,6 +56,12 @@ jobs:
           cd build
           wget "https://vulkan-tutorial.com/images/texture.jpg"
           ./mipmap texture.jpg .
+
+      - name: Upload executable as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mipmap-${{ runner.os }}
+          path: build/mipmap
 
       - name: Upload results as artifact
         uses: actions/upload-artifact@v4
