@@ -7,24 +7,27 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-24.04, macos-latest]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Add homebrew and vcpkg to PATH (Linux only)
+      - name: Setup LLVM, Ninja and vcpkg
         if: runner.os == 'Linux'
         run: |
-          echo "/home/linuxbrew/.linuxbrew/bin" >> $GITHUB_PATH
+          sudo apt-get install -y ninja-build
+          echo "CC=/usr/bin/clang-18" >> "$GITHUB_ENV"
+          echo "CXX=/usr/bin/clang++-18" >> "$GITHUB_ENV"
           echo "VCPKG_ROOT=$VCPKG_INSTALLATION_ROOT" >> "$GITHUB_ENV"
 
-      - name: Install Vulkan SDK
-        uses: humbletim/install-vulkan-sdk@v1.1.1
-
-      - name: Get LLVM and Ninja via Homebrew
+      - name: Setup LLVM, Ninja and vcpkg
+        if: runner.os == 'macOS'
         run: |
+          brew update # Ensure to use a latest version of Homebrew
           brew install llvm ninja
           echo "CC=$(brew --prefix llvm)/bin/clang" >> "$GITHUB_ENV"
           echo "CXX=$(brew --prefix llvm)/bin/clang++" >> "$GITHUB_ENV"
+          git clone https://github.com/microsoft/vcpkg "$HOME/vcpkg"
+          echo "VCPKG_ROOT=$HOME/vcpkg" >> "$GITHUB_ENV"
 
       - name: Cache libc++ build
         id: cache-libcxx
@@ -44,12 +47,8 @@ jobs:
             -DLLVM_INCLUDE_TESTS=OFF
           ninja -C build
 
-      - name: Install vcpkg (macOS only)
-        if: runner.os == 'macOS'
-        run: |
-          brew install vcpkg
-          git clone https://github.com/microsoft/vcpkg "$HOME/vcpkg"
-          echo "VCPKG_ROOT=$HOME/vcpkg" >> "$GITHUB_ENV"
+      - name: Install Vulkan SDK
+        uses: humbletim/install-vulkan-sdk@v1.1.1
 
       - name: Configure
         run: |
