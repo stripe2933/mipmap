@@ -775,7 +775,7 @@ private:
         std::uint32_t queueFamilyIndex
     ) const -> vk::raii::CommandPool {
         return { device, vk::CommandPoolCreateInfo {
-            vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+            {},
             queueFamilyIndex,
         } };
     }
