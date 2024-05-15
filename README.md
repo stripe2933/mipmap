@@ -8,7 +8,7 @@ Vulkan mipmap generation with 3 strategies: blit chain, compute with per-level b
 
 > [!TIP]
 > This project uses GitHub Action to ensure you can build and properly generate the results, tested in macOS and Ubuntu with Clang.
-> If you are struggling with the build, refer to the [workflow file](.github/workflows/deploy-and-test.yml) to see how it works.
+> If you are struggling with the build, refer to the [workflow files](.github/workflows) to see how it works.
 
 It reads the power-of-2 dimension image, generate full mipmaps by three strategies, and persist the results into output directory. You can compare the execution times using GPU timestamp query. All core codes are in `main.cpp` and shader codes are in `shaders` directory. Each `subgruop_mipmap_<subgroup-size>.comp` shader filenames are corresponding to the available subgroup size, and application will choose the proper shader file based on the system subgroup size.
 
