@@ -3,7 +3,7 @@ name: macOS
 on: [push]
 
 jobs:
-  deploy-and-test:
+  deploy:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
