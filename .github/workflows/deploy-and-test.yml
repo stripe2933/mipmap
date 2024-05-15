@@ -81,6 +81,9 @@ jobs:
         run: |
           chmod +x build/mipmap
 
+      - name: Install libc++ abi
+        run: sudo apt-get install libc++abi-dev
+
       - name: Install Mesa Vulkan drivers
         run: |
           sudo apt-get install -y mesa-vulkan-drivers
