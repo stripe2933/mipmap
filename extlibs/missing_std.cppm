@@ -5,6 +5,7 @@ export import std;
 #define FWD(...) static_cast<decltype(__VA_ARGS__)&&>(__VA_ARGS__)
 
 namespace std::ranges::views {
+#if __cpp_lib_ranges_enumerate < 202302L
     struct enumerate_fn : range_adaptor_closure<enumerate_fn> {
         template <std::ranges::input_range R>
         static constexpr auto operator()(
@@ -14,7 +15,9 @@ namespace std::ranges::views {
         }
     };
     export constexpr enumerate_fn enumerate;
+#endif
 
+#if __cpp_lib_ranges_zip < 202110L
     template <size_t N>
     struct adjacent_fn : range_adaptor_closure<adjacent_fn<N>> {
         template <forward_range R>
@@ -45,4 +48,5 @@ namespace std::ranges::views {
             return apply(f, FWD(t));
         });
     }
+#endif
 }
