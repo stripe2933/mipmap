@@ -1,32 +1,32 @@
 # Mipmap
 
-Vulkan mipmap generation with 3 strategies: blit chain, compute with per-level barriers, compute with subgroup shuffle.
+Vulkan mipmap generation with three strategies: blit chain, compute with per-level barriers, and compute with subgroup shuffle.
 
 ![Full level mipmap](assets/result.png)
 
 ## Usage Guide
 
 > [!TIP]
-> This project uses GitHub Action to ensure you can build and properly generate the results, tested in macOS and Ubuntu with Clang.
-> If you are struggling with the build, refer to the [workflow files](.github/workflows) to see how it works.
+> This project uses GitHub Action to ensure it can be properly built in Windows (MSVC) and macOS (Clang).
+> If you encounter any build issues, refer to the [workflow files](.github/workflows) to see how it works.
 
-It reads the power-of-2 dimension image, generate full mipmaps by three strategies, and persist the results into output directory. You can compare the execution times using GPU timestamp query. All core codes are in `main.cpp` and shader codes are in `shaders` directory. Each `subgruop_mipmap_<subgroup-size>.comp` shader filenames are corresponding to the available subgroup size, and application will choose the proper shader file based on the system subgroup size.
+The project reads the power-of-2 dimension image, generates full mipmaps by three different strategies, and save the results to an output directory. You can compare the execution times using GPU timestamp query. All core code is in `main.cpp`, and shader code is in the `shaders` directory. Each `subgruop_mipmap_<subgroup-size>.comp` shader file corresponds to an available subgroup size, and the application will choose the appropriate shader file based on the system's subgroup size.
 
 ### Build
 
 For compilation, you need:
-- C++23 with Standard Library Module (a.k.a. [`import std;`](https://wg21.link/P2465R3))
-- CMake ≥ 3.28
-- External dependencies:
-  - [glslc](https://github.com/google/shaderc/tree/main/glslc): included in Vulkan SDK.
-  - [Vulkan Memory Allocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) and its [C++ binding](https://github.com/stripe2933/VulkanMemoryAllocator-Hpp) (originally from [Yaaz](https://github.com/YaaZ/VulkanMemoryAllocator-Hpp))
+- C++23 conformant compiler
+- CMake ≥ 3.24
+- External dependencies
+  - [vku](https://github.com/stripe2933/vku)
+    - [glslc](https://github.com/google/shaderc/tree/main/glslc): included in Vulkan SDK.
+    - [Vulkan Memory Allocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) and its [C++ binding](https://github.com/YaaZ/VulkanMemoryAllocator-Hpp)
   - [stb_image](https://github.com/nothings/stb/blob/master/stb_image.h)
 
 ```bash
 mkdir build
 cmake -S . -B build -G Ninja                                          \
   -DCMAKE_BUILD_TYPE=Release                                          \
-  -DLIBCXX_BUILD=${{ github.workspace }}/llvm-project/build           \
   -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake # Or other package manager what you use
 cmake --build build -t mipmap --config Release
 ```
