@@ -416,7 +416,7 @@ public:
 
         constexpr std::array filenames { "blit.png", "compute_per_level_barriers.png", "compute_subgroup.png" };
         for (const auto &[destagingBuffer, filename] : std::views::zip(destagingBuffers, filenames)) {
-            stbi_write_png((outputDir / filename).c_str(),
+            stbi_write_png((outputDir / filename).string().c_str(),
                 destagingImageExtent.width, destagingImageExtent.height, 4,
                 destagingBuffer.data, blockSize(vk::Format::eR8G8B8A8Unorm) * destagingImageExtent.width);
         }
