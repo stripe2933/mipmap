@@ -14,13 +14,8 @@
 #include <vku/utils.hpp>
 #include <vulkan/vulkan_format_traits.hpp>
 
-
 #include "pipelines/MipmapComputer.hpp"
 #include "pipelines/SubgroupMipmapComputer.hpp"
-
-#ifdef NDEBUG
-#include <resources/shaders.hpp>
-#endif
 
 #define INDEX_SEQ(Is, N, ...)                          \
     [&]<std::size_t... Is>(std::index_sequence<Is...>) \

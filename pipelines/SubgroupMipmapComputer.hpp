@@ -5,6 +5,10 @@
 #include <vku/pipelines.hpp>
 #include <vku/RefHolder.hpp>
 
+#ifdef NDEBUG
+#include <resources/shaders.hpp>
+#endif
+
 #define FWD(...) static_cast<decltype(__VA_ARGS__) &&>(__VA_ARGS__)
 
 /**
