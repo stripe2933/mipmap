@@ -1,9 +1,14 @@
 name: Windows
 
-on: [push]
+on:
+  push:
+    paths:
+      - '**'
+      - '!.github/workflows/**'
+      - '.github/workflows/windows.yml'
 
 jobs:
-  deploy:
+  build:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -11,22 +16,12 @@ jobs:
       - name: Install Vulkan SDK
         uses: humbletim/install-vulkan-sdk@v1.1.1
 
-      - name: Use Visual Studio devenv
-        uses: seanmiddleditch/gha-setup-vsdevenv@master
-
       - name: Configure
         run: |
           mkdir build
-          cmake -S . -B build -G "Visual Studio 17 2022" -T v143                                   `
-            -DCMAKE_BUILD_TYPE=Release                                                             `
-            -DVCTOOLS_INSTALL_DIR="$env:VCToolsInstallDir"                                         `
+          cmake -S . -B build -G "Visual Studio 17 2022" -T v143 `
+            -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
 
       - name: Build
-        run: cmake --build build -t mipmap --config Release
-
-      - name: Upload executable as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: mipmap-${{ runner.os }}
-          path: build/Release/mipmap
+        run: cmake --build build --config Release
