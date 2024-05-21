@@ -1,15 +1,14 @@
-module;
+#pragma once
 
-#define STB_IMAGE_IMPLEMENTATION
+#include <filesystem>
+#include <span>
+
 #include <stb_image.h>
-
-export module image_data;
-import std;
 
 template <typename T, typename... Ts>
 concept one_of = (std::same_as<T, Ts> || ...);
 
-export template <one_of<stbi_uc, stbi_us, float> T>
+template <one_of<stbi_uc, stbi_us, float> T>
 class ImageData {
 public:
     int width, height, channels;
