@@ -19,7 +19,7 @@ public:
         std::span<const U> memory,
         int desiredChannels = 0
     ) {
-        constexpr auto loadFunc = [] consteval {
+        constexpr auto loadFunc = [] {
             if constexpr (std::same_as<T, stbi_uc>) {
                 return &stbi_load_from_memory;
             }
@@ -41,10 +41,10 @@ public:
     }
 
     explicit ImageData(
-        const std::filesystem::path &path,
+        const char *path,
         int desiredChannels = 0
     ) {
-        constexpr auto loadFunc = [] consteval {
+        constexpr auto loadFunc = [] {
             if constexpr (std::same_as<T, stbi_uc>) {
                 return &stbi_load;
             }
@@ -57,7 +57,7 @@ public:
         }();
 
         data.reset(loadFunc(
-            path.c_str(),
+            path,
             &width, &height, &channels, desiredChannels));
         if (desiredChannels != 0){
             channels = desiredChannels;
