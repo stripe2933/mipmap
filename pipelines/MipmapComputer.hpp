@@ -88,12 +88,13 @@ public:
         commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *pipelineLayout, 0, descriptorSets, {});
         for (auto [srcLevel, dstLevel] : std::views::iota(0U, mipLevels) | ranges::views::pairwise) {
             if (srcLevel != 0U) {
-                constexpr vk::MemoryBarrier barrier {
-                    vk::AccessFlagBits::eShaderWrite, vk::AccessFlagBits::eShaderRead,
-                };
                 commandBuffer.pipelineBarrier(
                     vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eComputeShader,
-                    {}, barrier, {}, {});
+                    {},
+                    vk::MemoryBarrier {
+                        vk::AccessFlagBits::eShaderWrite, vk::AccessFlagBits::eShaderRead,
+                    },
+                    {}, {});
             }
 
             commandBuffer.pushConstants<PushConstant>(*pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, PushConstant { srcLevel });

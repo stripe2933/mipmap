@@ -116,12 +116,13 @@ public:
         commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *pipelineLayout, 0, descriptorSets, {});
         for (const auto &[idx, mipIndices] : indexChunks | ranges::views::enumerate) {
             if (idx != 0) {
-                constexpr vk::MemoryBarrier barrier {
-                    vk::AccessFlagBits::eShaderWrite, vk::AccessFlagBits::eShaderRead,
-                };
                 commandBuffer.pipelineBarrier(
                     vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eComputeShader,
-                    {}, barrier, {}, {});
+                    {},
+                    vk::MemoryBarrier {
+                        vk::AccessFlagBits::eShaderWrite, vk::AccessFlagBits::eShaderRead,
+                    },
+                    {}, {});
             }
 
             commandBuffer.pushConstants<PushConstant>(*pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, PushConstant {
