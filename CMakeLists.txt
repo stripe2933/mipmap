@@ -1,16 +1,5 @@
-cmake_minimum_required(VERSION 3.28)
+cmake_minimum_required(VERSION 3.24)
 project(mipmap)
-
-set(CMAKE_CXX_STANDARD 23)
-
-# --------------------
-# Enable standard library module.
-# --------------------
-
-file(DOWNLOAD https://raw.githubusercontent.com/stripe2933/CppStandardLibraryModule/main/cmake/EnableStandardLibraryModule.cmake
-    ${PROJECT_BINARY_DIR}/EnableStandardLibraryModule.cmake
-)
-include(${PROJECT_BINARY_DIR}/EnableStandardLibraryModule.cmake)
 
 # ----------------
 # Install CPM.cmake.
@@ -35,12 +24,7 @@ CPMAddPackage("gh:stripe2933/vku#main")
 # ----------------
 
 add_executable(mipmap main.cpp impl.cpp)
-target_sources(mipmap PRIVATE
-    FILE_SET CXX_MODULES
-    FILES
-        extlibs/image_data.cppm
-        extlibs/ranges.cppm
-)
+target_include_directories(mipmap PRIVATE extlibs)
 target_link_libraries(mipmap PRIVATE vku)
 
 # ----------------
