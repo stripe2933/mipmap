@@ -116,7 +116,7 @@ public:
         const std::filesystem::path &outputDir
     ) const -> void {
         // Load image, calculate the maximum mip levels.
-        const ImageData<std::uint8_t> imageData { imagePath, 4 };
+        const ImageData<std::uint8_t> imageData { imagePath.string().c_str(), 4 };
         const vk::Extent2D baseImageExtent { static_cast<std::uint32_t>(imageData.width), static_cast<std::uint32_t>(imageData.height) };
         const std::uint32_t imageMipLevels = vku::Image::maxMipLevels(baseImageExtent);
 
