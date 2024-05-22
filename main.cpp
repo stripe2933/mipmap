@@ -385,7 +385,7 @@ private:
     vk::raii::CommandPool computeGraphicsCommandPool = createCommandPool(queueFamilyIndices.computeGraphics);
 
     [[nodiscard]] auto createGpu() const -> Gpu {
-        return Gpu { instance, Gpu::Config {
+        return Gpu { instance, Gpu::Config<std::tuple<vk::PhysicalDeviceHostQueryResetFeatures, vk::PhysicalDeviceDescriptorIndexingFeatures>> {
             .physicalDeviceRater = [](vk::PhysicalDevice physicalDevice) {
                 if (const vk::PhysicalDeviceLimits limits = physicalDevice.getProperties().limits;
                     limits.timestampPeriod == 0.f || !limits.timestampComputeAndGraphics) {
