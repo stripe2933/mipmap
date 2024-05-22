@@ -28,80 +28,37 @@
 #define FWD(...) static_cast<decltype(__VA_ARGS__) &&>(__VA_ARGS__)
 
 struct QueueFamilyIndices {
-    std::uint32_t compute;
-    std::uint32_t graphics;
-    std::uint32_t transfer;
+    std::uint32_t computeGraphics;
 
     explicit QueueFamilyIndices(
         vk::PhysicalDevice physicalDevice
     ) {
-        const std::vector queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
-
-        // Compute: prefer compute specialized (no graphics capable) queue family.
-        if (auto it = std::ranges::find_if(queueFamilyProperties, [](vk::QueueFlags flags) {
-            return (flags & vk::QueueFlagBits::eCompute) && !(flags & vk::QueueFlagBits::eGraphics);
-        }, &vk::QueueFamilyProperties::queueFlags); it != queueFamilyProperties.end()) {
-            compute = it - queueFamilyProperties.begin();
-        }
-        else if (auto it = std::ranges::find_if(queueFamilyProperties, [](vk::QueueFlags flags) {
-            return vku::contains(flags, vk::QueueFlagBits::eCompute);
-        }, &vk::QueueFamilyProperties::queueFlags); it != queueFamilyProperties.end()) {
-            compute = it - queueFamilyProperties.begin();
-        }
-        else {
-            throw std::runtime_error { "Physical device doesn't have compute queue family" };
+        for (auto [queueFamilyIndex, properties] : physicalDevice.getQueueFamilyProperties() | ranges::views::enumerate) {
+            if (properties.queueFlags & vk::QueueFlagBits::eCompute && properties.queueFlags & vk::QueueFlagBits::eGraphics) {
+                computeGraphics = queueFamilyIndex;
+                return;
+            }
         }
 
-        // Graphics: any queue family is ok.
-        if (auto it = std::ranges::find_if(queueFamilyProperties, [](vk::QueueFlags flags) {
-            return vku::contains(flags, vk::QueueFlagBits::eGraphics);
-        }, &vk::QueueFamilyProperties::queueFlags);
-            it != queueFamilyProperties.end()) {
-            graphics = it - queueFamilyProperties.begin();
-        }
-        else {
-            throw std::runtime_error { "Physical device doesn't have graphics queue family" };
-        }
-
-        // Transfer: prefer transfer-only (\w sparse binding ok) queue fmaily.
-        if (auto it = std::ranges::find_if(queueFamilyProperties, [](vk::QueueFlags flags) {
-            return (flags & ~vk::QueueFlagBits::eSparseBinding) == vk::QueueFlagBits::eTransfer;
-        }, &vk::QueueFamilyProperties::queueFlags);
-            it != queueFamilyProperties.end()) {
-            transfer = it - queueFamilyProperties.begin();
-        }
-        else if (auto it = std::ranges::find_if(queueFamilyProperties, [](vk::QueueFlags flags) {
-            return vku::contains(flags, vk::QueueFlagBits::eTransfer);
-        }, &vk::QueueFamilyProperties::queueFlags); it != queueFamilyProperties.end()) {
-            transfer = it - queueFamilyProperties.begin();
-        }
-        else {
-            throw std::runtime_error { "Physical device doesn't have transfer queue family" };
-        }
+        throw std::runtime_error { "Physical device doesn't have compute-graphics queue family" };
     }
 };
 
 struct Queues {
-    vk::Queue compute;
-    vk::Queue graphics;
-    vk::Queue transfer;
+    vk::Queue computeGraphics;
 
     Queues(
         vk::Device device,
         const QueueFamilyIndices &queueFamilyIndices
-    ) : compute { device.getQueue(queueFamilyIndices.compute, 0) },
-        graphics { device.getQueue(queueFamilyIndices.graphics, 0) },
-        transfer { device.getQueue(queueFamilyIndices.transfer, 0) } { }
+    ) : computeGraphics { device.getQueue(queueFamilyIndices.computeGraphics, 0) } { }
 
     [[nodiscard]] static auto getDeviceQueueCreateInfos(
         const QueueFamilyIndices &queueFamilyIndices
-    ) -> std::vector<vk::DeviceQueueCreateInfo> {
-        return std::set { queueFamilyIndices.graphics, queueFamilyIndices.compute, queueFamilyIndices.transfer }
-            | std::views::transform([](std::uint32_t queueFamilyIndex) {
-                static constexpr std::array queuePriorities { 1.f };
-                return vk::DeviceQueueCreateInfo { {}, queueFamilyIndex, queuePriorities };
-            })
-            | std::ranges::to<std::vector>();
+    ) -> std::array<vk::DeviceQueueCreateInfo, 1> {
+        static constexpr std::array queuePriorities { 1.f };
+        return std::array {
+            vk::DeviceQueueCreateInfo { {}, queueFamilyIndices.computeGraphics, queuePriorities },
+        };
     }
 };
 
@@ -152,7 +109,7 @@ public:
         };
 
         // Staging from imageStagingBuffer to baseImages[0..3].
-        vku::executeSingleCommand(*device, *transferCommandPool, queues.transfer, [&](vk::CommandBuffer commandBuffer) {
+        vku::executeSingleCommand(*device, *computeGraphicsCommandPool, queues.computeGraphics, [&](vk::CommandBuffer commandBuffer) {
             commandBuffer.pipelineBarrier(
                 vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eTransfer,
                 {}, {}, {},
@@ -161,7 +118,7 @@ public:
                         vk::ImageMemoryBarrier {
                             {}, vk::AccessFlagBits::eTransferWrite,
                             {}, vk::ImageLayout::eTransferDstOptimal,
-                            {}, {},
+                            vk::QueueFamilyIgnored, vk::QueueFamilyIgnored,
                             images,
                             { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 },
                         }...
@@ -180,7 +137,7 @@ public:
                     });
             }
         });
-        queues.transfer.waitIdle();
+        queues.computeGraphics.waitIdle();
 
         // Query pool for timestamp query.
         const vk::raii::QueryPool queryPool { device, vk::QueryPoolCreateInfo {
@@ -203,7 +160,7 @@ public:
         {
             const vku::Image &targetImage = get<0>(baseImages);
 
-            vku::executeSingleCommand(*device, *graphicsCommandPool, queues.graphics, [&](vk::CommandBuffer commandBuffer) {
+            vku::executeSingleCommand(*device, *computeGraphicsCommandPool, queues.computeGraphics, [&](vk::CommandBuffer commandBuffer) {
                 commandBuffer.resetQueryPool(*queryPool, 0, 2);
                 commandBuffer.writeTimestamp(vk::PipelineStageFlagBits::eTopOfPipe, *queryPool, 0);
 
@@ -215,14 +172,14 @@ public:
                             vk::ImageMemoryBarrier {
                                 srcLevel == 0U ? vk::AccessFlagBits::eNone : vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eTransferRead,
                                 vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eTransferSrcOptimal,
-                                {}, {},
+                                vk::QueueFamilyIgnored, vk::QueueFamilyIgnored,
                                 targetImage,
                                 { vk::ImageAspectFlagBits::eColor, srcLevel, 1, 0, 1 }
                             },
                             vk::ImageMemoryBarrier {
                                 {}, vk::AccessFlagBits::eTransferWrite,
                                 {}, vk::ImageLayout::eTransferDstOptimal,
-                                {}, {},
+                                vk::QueueFamilyIgnored, vk::QueueFamilyIgnored,
                                 targetImage,
                                 { vk::ImageAspectFlagBits::eColor, dstLevel, 1, 0, 1 }
                             },
@@ -242,7 +199,7 @@ public:
 
                 commandBuffer.writeTimestamp(vk::PipelineStageFlagBits::eBottomOfPipe, *queryPool, 1);
             });
-            queues.graphics.waitIdle();
+            queues.computeGraphics.waitIdle();
             printElapsedTime("Blit based mipmap generation");
         }
 
@@ -273,7 +230,7 @@ public:
                 descriptorSets.getDescriptorWrites0(imageMipViews | ranges::views::deref).get(),
                 {});
 
-            vku::executeSingleCommand(*device, *computeCommandPool, queues.compute, [&](vk::CommandBuffer commandBuffer) {
+            vku::executeSingleCommand(*device, *computeGraphicsCommandPool, queues.computeGraphics, [&](vk::CommandBuffer commandBuffer) {
                 commandBuffer.resetQueryPool(*queryPool, 0, 2);
                 commandBuffer.writeTimestamp(vk::PipelineStageFlagBits::eTopOfPipe, *queryPool, 0);
 
@@ -283,7 +240,7 @@ public:
                    vk::ImageMemoryBarrier {
                        {}, vk::AccessFlagBits::eShaderRead | vk::AccessFlagBits::eShaderWrite,
                        {}, vk::ImageLayout::eGeneral,
-                       {}, {},
+                       vk::QueueFamilyIgnored, vk::QueueFamilyIgnored,
                        targetImage,
                        vku::fullSubresourceRange(),
                    });
@@ -292,7 +249,7 @@ public:
 
                 commandBuffer.writeTimestamp(vk::PipelineStageFlagBits::eBottomOfPipe, *queryPool, 1);
             });
-            queues.compute.waitIdle();
+            queues.computeGraphics.waitIdle();
             printElapsedTime("Compute shader mipmap generation with per-level barriers");
         }
 
@@ -331,7 +288,7 @@ public:
                 descriptorSets.getDescriptorWrites0(imageMipViews | ranges::views::deref).get(),
                 {});
 
-            vku::executeSingleCommand(*device, *computeCommandPool, queues.compute, [&](vk::CommandBuffer commandBuffer) {
+            vku::executeSingleCommand(*device, *computeGraphicsCommandPool, queues.computeGraphics, [&](vk::CommandBuffer commandBuffer) {
                 commandBuffer.resetQueryPool(*queryPool, 0, 2);
                 commandBuffer.writeTimestamp(vk::PipelineStageFlagBits::eTopOfPipe, *queryPool, 0);
 
@@ -341,7 +298,7 @@ public:
                     vk::ImageMemoryBarrier {
                         {}, vk::AccessFlagBits::eShaderRead | vk::AccessFlagBits::eShaderWrite,
                         {}, vk::ImageLayout::eGeneral,
-                        {}, {},
+                        vk::QueueFamilyIgnored, vk::QueueFamilyIgnored,
                         targetImage,
                         vku::fullSubresourceRange(),
                     });
@@ -350,7 +307,7 @@ public:
 
                 commandBuffer.writeTimestamp(vk::PipelineStageFlagBits::eBottomOfPipe, *queryPool, 1);
             });
-            queues.compute.waitIdle();
+            queues.computeGraphics.waitIdle();
             printElapsedTime("Compute shader mipmap generation with subgroup operation");
         }
 
@@ -370,7 +327,7 @@ public:
 #pragma clang diagnostic pop
 
         // Copy from baseImages[0..3] to destagingBuffers[0..3].
-        vku::executeSingleCommand(*device, *transferCommandPool, queues.transfer, [&](vk::CommandBuffer commandBuffer) {
+        vku::executeSingleCommand(*device, *computeGraphicsCommandPool, queues.computeGraphics, [&](vk::CommandBuffer commandBuffer) {
             commandBuffer.pipelineBarrier(
                 vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eTransfer,
                 {}, {}, {},
@@ -379,7 +336,7 @@ public:
                         vk::ImageMemoryBarrier {
                             {}, vk::AccessFlagBits::eTransferRead,
                             {}, vk::ImageLayout::eTransferSrcOptimal,
-                            {}, {},
+                            vk::QueueFamilyIgnored, vk::QueueFamilyIgnored,
                             images,
                             vku::fullSubresourceRange(),
                         }...
@@ -412,7 +369,7 @@ public:
                     copyRegions);
             }
         });
-        queues.transfer.waitIdle();
+        queues.computeGraphics.waitIdle();
 
         constexpr std::array filenames { "blit.png", "compute_per_level_barriers.png", "compute_subgroup.png" };
         for (const auto &[destagingBuffer, filename] : std::views::zip(destagingBuffers, filenames)) {
@@ -425,9 +382,7 @@ public:
 private:
     vku::Allocator allocator = createAllocator();
     vk::raii::DescriptorPool descriptorPool = createDescriptorPool();
-    vk::raii::CommandPool computeCommandPool = createCommandPool(queueFamilyIndices.compute),
-                          graphicsCommandPool = createCommandPool(queueFamilyIndices.graphics),
-                          transferCommandPool = createCommandPool(queueFamilyIndices.transfer);
+    vk::raii::CommandPool computeGraphicsCommandPool = createCommandPool(queueFamilyIndices.computeGraphics);
 
     [[nodiscard]] auto createGpu() const -> Gpu {
         return Gpu { instance, Gpu::Config {
