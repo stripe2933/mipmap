@@ -36,8 +36,8 @@ public:
             const vk::raii::Device &device,
             std::uint32_t mipImageCount
         ) : vku::DescriptorSetLayouts<1> { device, LayoutBindings {
-            vk::DescriptorSetLayoutBinding { 0, vk::DescriptorType::eStorageImage, mipImageCount, vk::ShaderStageFlagBits::eCompute },
             vk::DescriptorSetLayoutCreateFlagBits::eUpdateAfterBindPool,
+            vk::DescriptorSetLayoutBinding { 0, vk::DescriptorType::eStorageImage, mipImageCount, vk::ShaderStageFlagBits::eCompute },
             std::array { vku::toFlags(vk::DescriptorBindingFlagBits::eUpdateAfterBind) },
         } } { }
     };
