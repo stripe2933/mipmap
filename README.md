@@ -1,5 +1,9 @@
 # Mipmap
 
+![Windows Build](https://github.com/stripe2933/mipmap/actions/workflows/windows.yml/badge.svg)
+![macOS Build](https://github.com/stripe2933/mipmap/actions/workflows/macos.yml/badge.svg)
+![Linux Build](https://github.com/stripe2933/mipmap/actions/workflows/linux.yml/badge.svg)
+
 Vulkan mipmap generation with three strategies: blit chain, compute with per-level barriers, and compute with subgroup shuffle.
 
 ![Full level mipmap](assets/result.png)
