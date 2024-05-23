@@ -49,9 +49,9 @@ If all requirements are satisfied, you can run the executable as:
 ./mipmap <image-path> <output-dir>
 ```
 
-The input image dimension must be power of 2, and its size must be at least `32x32`.
+The input image dimensions must be a power of 2, with a minimum size of `32x32`.
 
-In output directory, three files (`blit.png`, `compute_per_level_barriers.png`, `compute_subgroup.png`) will be generated. Each file corresponds to their generation method, respectively.
+In the output directory, three files (`blit.png`, `compute_per_level_barriers.png`, `compute_subgroup.png`) will be generated. Each file corresponds to its respective generation method.
 
 ## How does it work?
 
@@ -64,25 +64,25 @@ with image layout transition for every level.
 ```c++
 for (auto [srcLevel, dstLevel] : std::views::iota(0U, image.mipLevels) | std::views::pairwise) {
     if (srcLevel != 0U){
-        const std::array barriers {
-            vk::ImageMemoryBarrier {
-                vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eTransferRead,
-                vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eTransferSrcOptimal,
-                {}, {},
-                image,
-                { vk::ImageAspectFlagBits::eColor, srcLevel, 1, 0, 1 }
-            },
-            vk::ImageMemoryBarrier {
-                {}, vk::AccessFlagBits::eTransferWrite,
-                {}, vk::ImageLayout::eTransferDstOptimal,
-                {}, {},
-                image,
-                { vk::ImageAspectFlagBits::eColor, dstLevel, 1, 0, 1 }
-            },
-        };
         commandBuffer.pipelineBarrier(
             vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer,
-            {}, {}, {}, barriers);
+            {}, {}, {},
+            std::array {
+                vk::ImageMemoryBarrier {
+                    vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eTransferRead,
+                    vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eTransferSrcOptimal,
+                    {}, {},
+                    image,
+                    { vk::ImageAspectFlagBits::eColor, srcLevel, 1, 0, 1 }
+                },
+                vk::ImageMemoryBarrier {
+                    {}, vk::AccessFlagBits::eTransferWrite,
+                    {}, vk::ImageLayout::eTransferDstOptimal,
+                    {}, {},
+                    image,
+                    { vk::ImageAspectFlagBits::eColor, dstLevel, 1, 0, 1 }
+                },
+            });
     }
 
     commandBuffer.blitImage(
@@ -98,9 +98,9 @@ for (auto [srcLevel, dstLevel] : std::views::iota(0U, image.mipLevels) | std::vi
 }
 ```
 
-| Pros ✅ | Cons ❌                                                                              |
-|--------|-------------------------------------------------------------------------------------|
-| Simple to implement | - Requires multiple image layout transitions<br/>- Requires graphics capable queue (not a serious problem, but could be ridiculous if you deal with compute specialized queue families) |
+| Pros ✅ | Cons ❌                                                                                                                                                                                     |
+|--------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Simple to implement | - Requires multiple image layout transitions<br/>- Requires a graphics-capable queue (not a serious problem, but could be inconvenient if dealing with compute-specialized queue families) |
 
 ### Compute with per-level barriers
 
@@ -125,12 +125,13 @@ commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, *pipeline);
 commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *pipelineLayout, 0, descriptorSets, {});
 for (auto [srcLevel, dstLevel] : std::views::iota(0U, mipLevels) | std::views::pairwise) {
     if (srcLevel != 0U) {
-        constexpr vk::MemoryBarrier barrier {
-            vk::AccessFlagBits::eShaderWrite, vk::AccessFlagBits::eShaderRead,
-        };
         commandBuffer.pipelineBarrier(
             vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eComputeShader,
-            {}, barrier, {}, {});
+            {}, 
+            vk::MemoryBarrier {
+                vk::AccessFlagBits::eShaderWrite, vk::AccessFlagBits::eShaderRead,
+            }, 
+            {}, {});
     }
 
     commandBuffer.pushConstants<PushConstant>(*pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, PushConstant { srcLevel });
@@ -143,9 +144,9 @@ for (auto [srcLevel, dstLevel] : std::views::iota(0U, mipLevels) | std::views::p
 
 This method has some advantages and disadvantages compared to the blit chain:
 
-| Pros ✅                                                           | Cons ❌                                                                                                                                                                                                                                                                |
-|------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| - Compute only<br/>- No image layout transition between dispatch | - Still requires memory barrier between dispatch<br/>- Managing pipeline and descriptor sets is hard<br/>- Slower than blit chain (because it must compile the shader and bind the pipeline and descriptors)<br/>- Cannot be used for non-power of 2 dimension images |
+| Pros ✅                                                             | Cons ❌                                                                                                                                                                                                                                                                                       |
+|--------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| - Compute only<br/>- No image layout transition between dispatches | - Still requires memory barrier between dispatches<br/>- Managing pipelines and descriptor sets is challenging<br/>- Slower than the blit chain (due to the need to compile the shader and bind the pipeline and descriptors)<br/>- Cannot be used for images with non-power of 2 dimensions |
 
 ### Compute with subgroup shuffle
 
@@ -153,27 +154,27 @@ This is the main concept, so I'll explain it in detail.
 
 #### What is subgroup?
 
-In shader, invocations within a specific group can communicate without an explicit synchronization, which is called ***subgroup***. Size of subgroups are differ in system, but every NVIDIA GPUs are 32 and typical AMD GPUs are 64.
+In shader, invocations within a specific group can communicate without explicit synchronization, a concept known as a ***subgroup***. The size of subgroups varies by system, for example, subgroups on NVIDIA GPUs are typically 32, while on AMD GPUs, they are usually 64.
 
-**If a subgroup holds a 2x2 texel data, it can average them into 1 texel without explicit synchronization**. This can be extended to `2^n x 2^n` texel data, and it can be mipmapped into 1 texel (if subgroup size is enough).
+**If a subgroup holds 2x2 texel data, it can average them into 1 texel without explicit synchronization**. This can be extended to `2^n x 2^n` texel data, which can then be mipmapped into 1 texel, provided the subgroup size is sufficient.
 
 #### Mapping from invocation ID to texel fetch position
 
-Let's assume that the workgroup size is `16x16`, and subgroup size is `32`. Then, total `256 / 32 = 8` subgroups are laid linearly in the workgroup.
+Assuming the workgroup size is `16x16` and the subgroup size is `32`, a total of `256 / 32 = 8` subgroups are arranged linearly within the workgroup.
 
 ![8 subgroups laid in `16x16` workgroup](assets/subgroup_linear.png)
 
-Each `16x2` subgroup is filled with alternating background color for distinction. Numbers in each cell are `gl_SubgroupInvocationID`.
+Each `16x2` subgroup is filled with alternating background colors for distinction. The numbers in each cell represent `gl_SubgroupInvocationID`.
 
-It would be suboptimal if an invocation within a subgroup fetches the texel at `gl_GlobalInvocationID.xy` like before, because they can only average `2x2` texels. For example, in the first subgroup in the above figure (filled with light blue), ID with 0, 1, 16 and 17 can communicate and make `2x2` region into 1 average pixel, however it can't make `4x4` region into 1 because the row count of a subgroup is 2. To maximize the efficiency, **texel fetching shape inside a subgroup have to be as square as possible**.
+It would be suboptimal for an invocation within a subgroup to fetch the texel at `gl_GlobalInvocationID.xy` as before because they can only average `2x2` texels. For example, in the first subgroup in the figure (filled with light blue), IDs 0, 1, 16 and 17 can communicate and average `2x2` region into 1 pixel. However, they cannot average a `4x4` region into 1 pixel because the row count of a subgroup is 2. To maximize efficiency, **the texel fetching pattern within a subgroup needs to be as square as possible**.
 
 ![Texel fetch position for every invocations](assets/sample-mapping-linear.png)
 
-In the above figure, optimal texel fetching position for each invocation is shown. With this mapping, the subgroups can make `4x4` region into 1 average pixel.
+In the figure, the optimal texel fetching position for each invocation is shown. With this mapping, the subgroups can average a `4x4` region into 1 pixel.
 
 ![Texel fetch position aligned by sample position](assets/sample-mapping-aligned.png)
 
-If we plot the `gl_LocalInvocationID.xy` with their own texel fetching positions, the figure would be like above. Each subgroup filled with distinct colors. In this case, the subgroup extent is `8x4`, which is more square-shaped than before.
+If we plot `gl_LocalInvocationID.xy` with their respective texel fetching positions, the figure would look like the one above. Each subgroup is filled with distinct colors. In this case, the subgroup extent is `8x4`, which is more square-shaped than before.
 
 ![subgroup_square.png](assets/subgroup_square.png)
 
@@ -188,7 +189,7 @@ ivec2 sampleLocation = gl_WorkGroupSize.xy * gl_WorkGroupID.xy + ivec2(
 );
 ```
 
-Or more bit manipulation friendly version:
+Or a more bit manipulation-friendly version:
 
 ```glslc
 ivec2 samplePosition = gl_WorkgroupSize.xy * gl_WorkGroupID.xy + ivec2(
@@ -203,9 +204,9 @@ With properly mapped texels in the subgroup, we can use ***Subgroup shuffle*** t
 
 ![Subgroup ID in binary form](assets/subgroup-id-binary.png)
 
-Above figure is visualization of `gl_SubgroupInvocationID` with binary form in a subgroup. With [`subgroupShuffleXor`](https://www.khronos.org/blog/vulkan-subgroup-tutorial), an invocation (let's say its `gl_SubgroupInvocationID` as `i`) can access to the invocation's data, whose `gl_SubgroupInvocationID` is `i ^ <constant-value>`, i.e. bitwise XOR.
+The figure above visualizes `gl_SubgroupInvocationID` in binary form within a subgroup. Using [`subgroupShuffleXor`](https://www.khronos.org/blog/vulkan-subgroup-tutorial), an invocation (let's denote its `gl_SubgroupInvocationID` as `i`) can access the data of the invocation whose `gl_SubgroupInvocationID` is `i ^ <constant-value>`, i.e. bitwise XOR.
 
-For example, the following shader for the invocations whose `gl_SubgroupID`s are `0, 1, 8, 9` will be executed as:
+For example, the following shader for the invocations whose `gl_SubgroupID`s are `0, 1, 8, 9` will execute as:
 
 ```glsl
 vec4 averageColor = imageLoad(baseImage, samplePosition);
@@ -273,13 +274,13 @@ averageColor += subgroupShuffleXor(averageColor, 16);
 averageColor /= 4.0;
 ```
 
-Because all adjacent quad have same `averageColor` in the previous phase, it must communicate with the next 2-stride adjacent quad.
+Because all adjacent quads have the same averageColor in the previous phase, they must communicate with the next 2-stride adjacent quad.
 
 ### Shared memory with barrier
 
-If your system's subgroup size is 32, it can shape `8x4` subgroup extent, therefore two `4x4` region can be mipmapped into 1 pixel. Even if you're using AMD GPU and have 64 subgroup size, it can shape `8x8` subgroup extent and `8x8` region can be mipmapped. This is still far from our goal, `32x32` region into 1 pixel. To achieve this, we'll use shared memory.
+If your system's subgroup size is 32, it can form an `8x4` subgroup extent, allowing two `4x4` regions to be mipmapped into 1 pixel. Even if you're using an AMD GPU with a subgroup size of 64, it can form an `8x8` subgroup extent and an `8x8` region can be mipmapped. However, this is still far from our goal of mipmapping a `32x32` region into 1 pixel. To achieve this, we'll use shared memory.
 
-Each subgroup stores its `averageColor` in shared memory, and after synchronization (`memoryBarrierShared(); barrier();`), the representing invocation in each `2^n x 2^n` region will be averaging up the shared `averageColor`. For subgroup size 32, this must be executed in twice.
+Each subgroup stores its `averageColor` in shared memory, and after synchronization (`memoryBarrierShared(); barrier();`), the representative invocation in each `2^n x 2^n` region will average the shared `averageColor`. For a subgroup size of 32, this must be executed twice.
 
 `subgroup_mipmap_32.comp`
 ```glsl
@@ -302,20 +303,20 @@ if (gl_LocalInvocationIndex == 0U){
 }
 ```
 
-As bigger subgroup size, the synchronization barrier executed less, so the performance will be better.
+With a larger subgroup size, fewer synchronization barriers are needed, improving performance.
 
 #### How this can be fast?
 
-This can be faster than the previous compute-based strategy, because it has significantly less memory barrier (10 vs 1 for `1024x1024` image). Each `32x32` region can be mipmapped by just 1 dispatch. For every dispatch, shaders load the texel from image (which is stored in VRAM), and store them into image repeatedly. With subgroup operation, each level except the first `imageLoad` phase, `averageColor` can be loaded in L2 cache, which is far faster than loading from VRAM.
+This method can be faster than the previous compute-based strategy because it requires significantly fewer memory barriers (10 vs 1 for `1024x1024` image). Each `32x32` region can be mipmapped with just 1 dispatch. For every dispatch, shaders load the texels from the image (stored in VRAM) and store them back into the image repeatedly. With subgroup operation, each level, except the first `imageLoad` phase, allows `averageColor` to be loaded from the L2 cache, which is much faster than loading from VRAM.
 
 #### What is the downside of this method?
 
-Although it is faster than the previous compute-based strategy, it may still slower than blit-chain method if you're using non compute-specialized queue, or just mipmapping a single image. It shares the same downside of the previous one (have to manage pipeline and descriptor sets, can be only used in power of 2 images) and has additional constraint: image size must be at least `32x32` and your last dispatch input image size must be `32x32`. For example, if you're mipmapping `256x256` image, dispatching would be:
+Although this method is faster than the previous compute-based strategy, it may still slower than the blit-chain method if you're using a non-compute-specialized queue or just mipmapping a single image. It shares the same downsides as the previous one (needing to manage pipeline and descriptor sets, and being usable only with power of 2 images) and has additional constraint: the image size must be at least `32x32` and your last dispatch input image size must be `32x32`. For example, if you're mipmapping a `256x256` image, the dispatch sequence would be:
 
 1. `PushConstant { .baseLevel = 0, .remainingMipLevels = 3 }`: `256x256` -> `32x32`
 2. `PushConstant { .baseLevel = 3, .remainingMipLevels = 5 }`: `32x32` -> `1x1`
 
-Refer `SubgroupMipmapComputer::compute` method to see how it works.
+Refer to the `SubgroupMipmapComputer::compute` method to see how it works.
 
 ---
 
