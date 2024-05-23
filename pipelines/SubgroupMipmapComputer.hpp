@@ -165,7 +165,7 @@ private:
                         case 16U:  return resources::shaders_subgroup_mipmap_16_comp();
                         case 32U:  return resources::shaders_subgroup_mipmap_32_comp();
                         case 64U:  return resources::shaders_subgroup_mipmap_64_comp();
-                        case 128U: return resources::shaders_subgroup_mipmap_64_comp();
+                        case 128U: return resources::shaders_subgroup_mipmap_128_comp();
                         default:   throw std::runtime_error { "Subgroup size must be ≥ 8." };
                     }
                 }()),
