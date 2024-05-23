@@ -182,7 +182,7 @@ Now, each subgroup can average two `4x4` regions (`0..3, 8..11, 16..19, 24..27` 
 
 We need a mapping between texel fetch location and `gl_LocalInvocationID`. It would be
 
-```glslc
+```glsl
 ivec2 sampleLocation = gl_WorkGroupSize.xy * gl_WorkGroupID.xy + ivec2(
     gl_LocalInvocationID.x % 8 + (gl_LocalInvocationID.y / 8) * 8,
     ((gl_LocalInvocationID.y / 2) * 2 + gl_LocalInvocationID.x / 8) % 16
@@ -191,7 +191,7 @@ ivec2 sampleLocation = gl_WorkGroupSize.xy * gl_WorkGroupID.xy + ivec2(
 
 Or a more bit manipulation-friendly version:
 
-```glslc
+```glsl
 ivec2 samplePosition = gl_WorkgroupSize.xy * gl_WorkGroupID.xy + ivec2(
     (gl_LocalInvocationID.x & 7U) | (gl_LocalInvocationID.y & ~7U),
     ((gl_LocalInvocationID.y << 1U) | (gl_LocalInvocationID.x >> 3U)) & 15U
